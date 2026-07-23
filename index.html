@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>แอปลงทะเบียนรับประทานอาหารที่โรงครัว · มิตรลาว</title>
 <meta name="theme-color" content="#062F6E">
+<meta name="color-scheme" content="only light">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -17,6 +18,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
+    color-scheme: only light;
     --brand:#062F6E; --brand2:#0A63B0; --brand-l:#cfe9fb; --brand-soft:#eff8ff; --sky:#00AEEF;
     --ink:#0f172a; --ink2:#334155; --muted:#64748b; --line:#e2e8f0; --bg:#f1f5f9; --card:#fff;
     --pos:#16a34a; --pos-l:#dcfce7; --neg:#dc2626; --neg-l:#fee2e2;
@@ -2571,7 +2573,9 @@ function apiPost(action,data){if(!apiEnabled())return Promise.resolve({ok:true})
   return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({action:action},data))})
     .then(r=>r.json()).catch(err=>{console.warn('sync failed',err);toast('⚠️ ซิงก์ข้อมูลไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต');return{ok:false,error:String(err)};});}
 function emptyMenuDays(){const arr=[];for(let i=0;i<rounds;i++)arr.push({dateISO:ymd(addDays(startDate,i)),meals:{breakfast:[],lunch:[],dinner:[]}});return arr;}
-function applyStateFromAPI(st){rounds=st.rounds||rounds;startDate=st.startDate||startDate;
+/* Google Sheet อาจแปลงช่องวันที่เป็น Date object — แปลงกลับเป็น YYYY-MM-DD เสมอ */
+function isoDateStr(v){if(!v)return '';const s=String(v);if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const d=new Date(s);if(isNaN(d.getTime()))return '';const b=new Date(d.getTime()+7*3600*1000);const p=n=>String(n).padStart(2,'0');return b.getUTCFullYear()+'-'+p(b.getUTCMonth()+1)+'-'+p(b.getUTCDate());}
+function applyStateFromAPI(st){rounds=st.rounds||rounds;startDate=isoDateStr(st.startDate)||startDate;
   menuDays=emptyMenuDays();
   const menu=st.menu||{};
   Object.keys(menu).forEach(di=>{const d=Number(di);if(!menuDays[d])return;Object.keys(menu[di]).forEach(mk=>{menuDays[d].meals[mk]=menu[di][mk]||[];});});
@@ -2580,11 +2584,11 @@ function applyStateFromAPI(st){rounds=st.rounds||rounds;startDate=st.startDate||
   const regs=st.registrations||{};
   Object.keys(regs).forEach(code=>{registrations[code]={};Object.keys(regs[code]).forEach(di=>{registrations[code][Number(di)]=regs[code][di];});});
   histRounds=[];
-  (st.history||[]).forEach(h=>{const days=[];for(let i=0;i<(h.rounds||0);i++)days.push({dateISO:ymd(addDays(h.startDate,i)),meals:{breakfast:[],lunch:[],dinner:[]}});
+  (st.history||[]).forEach(h0=>{const h=Object.assign({},h0,{startDate:isoDateStr(h0.startDate)||h0.startDate});if(!isoDateStr(h.startDate))return;const days=[];for(let i=0;i<(h.rounds||0);i++)days.push({dateISO:ymd(addDays(h.startDate,i)),meals:{breakfast:[],lunch:[],dinner:[]}});
     Object.keys(h.menu||{}).forEach(di=>{const d=Number(di);if(!days[d])return;Object.keys(h.menu[di]).forEach(mk=>{days[d].meals[mk]=h.menu[di][mk]||[];});});
     const hr={};Object.keys(h.registrations||{}).forEach(c=>{hr[c]={};Object.keys(h.registrations[c]).forEach(di=>{hr[c][Number(di)]=h.registrations[c][di];});});
     histRounds.push({startDate:h.startDate,rounds:h.rounds,menuDays:days,registrations:hr});});
-  checkins={};Object.keys(st.checkins||{}).forEach(d=>{checkins[d]=st.checkins[d];});
+  checkins={};Object.keys(st.checkins||{}).forEach(d=>{const k=isoDateStr(d);if(k)checkins[k]=st.checkins[d];});
 }
 function afterBoot(){if(IS_CHECKIN)doCheckin();else render();}
 function boot(){
@@ -2617,7 +2621,15 @@ function askPIN(title,msg,cb){const o=document.createElement('div');o.className=
   btns[1].onclick=()=>{if(inp.value===getPIN()){o.remove();cb();}else{inp.value='';inp.placeholder='PIN ไม่ถูกต้อง';inp.style.borderColor='var(--neg)';setTimeout(()=>{inp.placeholder='····';inp.style.borderColor='';},1200);}};
   inp.onkeydown=e=>{if(e.key==='Enter')btns[1].onclick();};
   document.querySelector('.screen').appendChild(o);setTimeout(()=>inp.focus(),60);}
-function go(s){screen=s;render();}
+function go(s){try{if(screen!==s)history.pushState({screen:s},'');}catch(e){}screen=s;render();}
+/* ปุ่ม back ของมือถือ: ปิดป๊อปอัป/ย้อนหน้าในแอป แทนการปิดแอป (ออกได้เฉพาะที่หน้าแรก) */
+function safeScreen(s){if(!s)return 'home';if((s==='userReg'||s==='userDone')&&!currentUser)return 'home';if((s==='fbForm'||s==='fbDone')&&!fbUser)return 'home';return s;}
+try{history.replaceState({screen:'home'},'');}catch(e){}
+window.addEventListener('popstate',function(e){
+  const ov=document.querySelector('.modal-ov,.lightbox');
+  if(ov){ov.remove();try{history.pushState({screen:screen},'');}catch(e2){}return;}
+  screen=safeScreen(e.state&&e.state.screen);render();
+});
 function render(){const map={home:renderHome,empSearch:renderEmpSearch,adminPin:renderAdminPin,adminPinSet:renderAdminPinSet,adminHub:renderAdminHub,adminMenu:renderAdminMenu,adminDash:renderAdminDash,adminData:renderAdminData,adminEmp:renderAdminEmp,adminQR:renderAdminQR,checkin:renderCheckin,userCode:renderUserCode,userReg:renderUserReg,userDone:renderUserDone,regClosed:renderRegClosed,fbCode:renderFbCode,fbForm:renderFbForm,fbDone:renderFbDone,userHelp:renderUserHelp};setTop();body().className='app-body'+(screen==='home'?' center':'');(map[screen]||renderHome)();}
 function setTop(){const titles={empSearch:'ค้นหาพนักงาน',adminPin:'เข้าสู่ระบบผู้ดูแล',adminPinSet:'ตั้งค่า PIN',adminHub:'ผู้ดูแลระบบ',adminMenu:'จัดเมนู',adminDash:'แดชบอร์ด',adminData:'ข้อมูล & ส่งออก',adminEmp:'จัดการพนักงาน',adminQR:'QR เช็คอิน',checkin:'เช็คอินโรงอาหาร',userCode:'ลงทะเบียน',userReg:'ลงทะเบียน',userDone:'สำเร็จ',regClosed:'ลงทะเบียน',fbCode:'ข้อเสนอแนะ',fbForm:'ให้คะแนน & ข้อเสนอแนะ',fbDone:'ขอบคุณ',userHelp:'วิธีใช้งาน'};
   const backTo={empSearch:'home',adminPin:'home',adminPinSet:'adminHub',adminHub:'home',adminMenu:'adminHub',adminDash:'adminHub',adminData:'adminHub',adminEmp:'adminHub',adminQR:'adminHub',checkin:'home',userCode:'home',userReg:'home',userDone:'home',regClosed:'home',fbCode:'home',fbForm:'home',fbDone:'home',userHelp:'home'};
