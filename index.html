@@ -2564,7 +2564,7 @@ function allDatasets(scope){const arr=[{menuDays:menuDays,registrations:registra
 /* ===== Google Sheets backend sync (optional) =====
    ใส่ URL ของ Google Apps Script Web App ที่นี่ (ลงท้ายด้วย /exec)
    ถ้าปล่อยว่าง แอปจะทำงานแบบ demo (ข้อมูลอยู่ในเครื่องเท่านั้น ไม่ sync ข้ามอุปกรณ์) */
-const API_URL = '';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzzWixOUDXjnftwGzBDeybyyO821ya0MxS5S6nazjL7Nr0arlztsy8VPdNIhsrJPnLQ/exec';
 function apiEnabled(){return !!API_URL;}
 function apiGetState(){return fetch(API_URL+'?action=state').then(r=>r.json());}
 function apiPost(action,data){if(!apiEnabled())return Promise.resolve({ok:true});
@@ -2749,12 +2749,14 @@ function delEmpAsk(code){const e=employees.find(x=>x.code===code);if(!e)return;
 function ciUrl(){return location.href.split('?')[0].split('#')[0]+'?checkin=1';}
 function renderAdminQR(){const url=ciUrl();const isFile=location.protocol==='file:';
   const winRows=MEALS.map(m=>`<div class="row-item"><span style="font-size:19px">${m[2]}</span><span style="flex:1;font-weight:600">${m[1]}</span><span style="font-weight:700;color:var(--ink2)">${CI_WINDOWS[m[0]][0]} – ${CI_WINDOWS[m[0]][1]} น.</span></div>`).join('');
-  body().innerHTML=`<div class="hint">📌 พิมพ์ QR นี้ไปติดหน้าโรงอาหารทุกจุด — พนักงานสแกนเพื่อยืนยันว่า "มาทานจริง" ระบบจะนับเทียบกับยอดที่ลงว่าทาน (ดูผลในแดชบอร์ด แท็บ "มาจริง")</div>
-  <div class="card" style="text-align:center;padding:20px"><div id="qrbox" style="display:inline-block;padding:6px;background:#fff;border:1px solid var(--line);border-radius:12px"></div><div style="font-weight:800;font-size:17px;margin-top:10px">สแกนเมื่อมาถึงโรงอาหาร 🍚</div><div style="color:var(--muted);font-size:11.5px;word-break:break-all;margin-top:6px">${url}</div></div>
+  body().innerHTML=`<div class="hint">📌 พิมพ์ QR นี้ไปติดหน้าโรงอาหารทุกจุด — พนักงานสแกนเพื่อยืนยันว่า "มาทานจริง" ดูผลในแดชบอร์ด แท็บ "มาจริง"</div>
+  ${isFile
+    ?`<div class="card" style="text-align:center;padding:28px 20px"><div style="width:190px;height:190px;margin:0 auto;border:2px dashed var(--line);border-radius:16px;display:grid;place-items:center;background:var(--bg)"><div style="font-size:44px">🧾</div></div><div style="font-weight:800;font-size:16.5px;margin-top:14px">QR จะแสดงเมื่อเปิดจากลิงก์จริง</div><div style="color:var(--muted);font-size:13px;line-height:1.8;margin-top:6px">นำแอปขึ้นลิงก์ https ก่อน (ตามคู่มือติดตั้งแอปมือถือ)<br>แล้วเปิดหน้านี้จากลิงก์นั้น QR จะขึ้นให้อัตโนมัติ</div></div>`
+    :`<div class="card" style="text-align:center;padding:24px 20px"><div id="qrbox" style="display:inline-block;padding:10px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh-sm)"></div><div style="font-weight:800;font-size:17px;margin-top:12px">สแกนเมื่อมาถึงโรงอาหาร 🍚</div><div style="color:var(--muted);font-size:12.5px;margin-top:4px">สแกนซ้ำในคาบเดียวกันจากเครื่องเดิม ระบบไม่นับเพิ่ม</div></div>`}
   <div class="card"><div class="sec-title">⏱ ช่วงเวลาที่สแกนได้ (เวลาไทย)</div>${winRows}</div>
-  <button class="btn btn-brand" onclick="downloadQRPoster()">📤 แชร์ / บันทึกภาพโปสเตอร์ QR (ไปพิมพ์)</button>
-  ${isFile?'<div class="note" style="color:var(--neg);font-weight:600">⚠️ ตอนนี้เปิดจากไฟล์ในเครื่อง QR ยังใช้จริงไม่ได้ — ต้องนำแอปขึ้นลิงก์ https ก่อน (ตาม flow ติดตั้งแอปมือถือ) แล้วเปิดหน้านี้จากลิงก์จริง QR จะชี้ไปที่ลิงก์นั้นอัตโนมัติ</div>':'<div class="note">สแกนซ้ำในคาบเดียวกันจากเครื่องเดิม ระบบจะไม่นับเพิ่ม</div>'}`;
-  try{const qr=qrcode(0,'M');qr.addData(url);qr.make();document.getElementById('qrbox').innerHTML=qr.createImgTag(5,10);}catch(e){document.getElementById('qrbox').innerHTML='<div class="note">สร้าง QR ไม่สำเร็จ (ลิงก์ยาวเกินไป)</div>';}}
+  ${isFile?'':'<button class="btn btn-brand" onclick="downloadQRPoster()">📤 แชร์ / บันทึกภาพโปสเตอร์ QR (ไปพิมพ์)</button>'}
+  <button class="btn btn-ghost" onclick="go('adminHub')">‹ กลับเมนูผู้ดูแล</button>`;
+  if(!isFile){try{const qr=qrcode(0,'M');qr.addData(url);qr.make();const img=qr.createImgTag(5,4);document.getElementById('qrbox').innerHTML=img.replace('<img ','<img style="width:210px;height:210px;image-rendering:pixelated" ');}catch(e){document.getElementById('qrbox').innerHTML='<div class="note">สร้าง QR ไม่สำเร็จ</div>';}}}
 function downloadQRPoster(){const url=ciUrl();const W=800,H=1060,cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d');
   x.fillStyle='#fff';x.fillRect(0,0,W,H);x.fillStyle='#062F6E';x.fillRect(0,0,W,130);
   x.textBaseline='middle';x.textAlign='center';x.fillStyle='#fff';x.font="800 34px 'IBM Plex Sans Thai','Sarabun',sans-serif";x.fillText('สแกนยืนยัน "มาทานจริง" 🍚',W/2,52);
@@ -2778,7 +2780,8 @@ function renderAdminMenu(){if(selDay>=menuDays.length)selDay=0;
   <div class="hint">กรอกเมนูให้ครบทั้ง 3 คาบ (เช้า→กลางวัน→เย็น) ตามลำดับ · วันถัดไปจะปลดล็อก 🔒 เมื่อกรอกครบ ✓</div>
   <div class="card"><label class="fld">เลือกวัน</label><div class="chips day">${menuDays.map((dd,i)=>{const d=thDateISO(dd.dateISO);const lock=i>unlockDay,done=dayDone(i);return `<button class="${selDay===i?'active':''}" ${lock?'disabled':''} style="flex:1;min-width:0;padding:9px 3px;font-size:12px;line-height:1.25;${lock?'opacity:.35':''}" onclick="${lock?'':`selDay=${i};render()`}">${d.dow.slice(0,2)}<br>${d.short}${done?' ✓':lock?' 🔒':''}</button>`;}).join('')}</div>
     <label class="fld">เลือกคาบ (ไล่ตามลำดับ)</label><div class="chips">${MEALS.map((m,i)=>{const filled=(smeals[m[0]]||[]).length>0,lock=i>mealUnlock;return `<button class="${selMeal===m[0]?'active':''}" ${lock?'disabled':''} style="${lock?'opacity:.35':''}" onclick="${lock?'':`selMeal='${m[0]}';render()`}">${m[2]}<br>${m[1].replace('คาบ','')}${filled?' ✓':lock?' 🔒':''}</button>`;}).join('')}</div>
-    <label class="fld">ชื่อเมนู</label><input class="txt" id="mName" placeholder="เช่น ข้าวผัดกุ้ง">
+    <label class="fld">ชื่อเมนู <span style="color:var(--muted);font-weight:500;font-size:12px">(กด + ถ้าคาบนี้มีมากกว่า 1 เมนู)</span></label>
+    ${mNames.map((v,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center"><input class="txt mname" placeholder="${i===0?'เช่น ข้าวผัดกุ้ง':'เมนูที่ '+(i+1)}" value="${(v||'').replace(/"/g,'&quot;')}" oninput="mNames[${i}]=this.value" style="flex:1"><button onclick="mNameAdd()" style="width:42px;height:42px;flex-shrink:0;border:none;border-radius:11px;background:var(--brand-soft);color:var(--brand);font-size:22px;font-weight:800;cursor:pointer;font-family:inherit">+</button><button onclick="mNameDel(${i})" style="width:42px;height:42px;flex-shrink:0;border:none;border-radius:11px;background:var(--neg-l);color:var(--neg);font-size:24px;font-weight:800;cursor:pointer;font-family:inherit">−</button></div>`).join('')}
     <label class="fld">รูปอาหาร (ถ้ามี)</label><div class="img-drop" onclick="document.getElementById('mImg').click()">📎 แตะเพื่อเลือกรูปจากเครื่อง</div>
     <input type="file" id="mImg" accept="image/*" class="hide" onchange="prevImg(event)"><img id="mPrev" class="img-preview hide">
     <button class="btn btn-brand" style="margin-top:14px" onclick="addMenu()">ยืนยันเพิ่มเมนู</button></div>
@@ -2792,14 +2795,29 @@ function confirmSetup(){rebuildDays();
   if(apiEnabled())apiPost('newRound',{rounds:rounds,startDate:startDate});
   menuReady=true;menuStep='edit';selDay=0;selMeal='breakfast';render();}
 let pendingImg=null;
+let mNames=[''];
+function mNameAdd(){mNames.push('');render();}
+function mNameDel(i){if(mNames.length<=1){mNames=[''];render();return;}mNames.splice(i,1);render();}
 function prevImg(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{pendingImg=ev.target.result;const p=document.getElementById('mPrev');p.src=pendingImg;p.classList.remove('hide');};r.readAsDataURL(f);}
-function addMenu(){const n=document.getElementById('mName').value.trim();if(!n){toast('กรุณาใส่ชื่อเมนู');return;}menuDays[selDay].meals[selMeal]=menuDays[selDay].meals[selMeal]||[];menuDays[selDay].meals[selMeal].push({name:n,emoji:'🍽️',img:pendingImg});pendingImg=null;toast('เพิ่มเมนูแล้ว');
+function addMenu(){const names=mNames.map(s=>(s||'').trim()).filter(Boolean);if(!names.length){toast('กรุณาใส่ชื่อเมนู');return;}
+  menuDays[selDay].meals[selMeal]=menuDays[selDay].meals[selMeal]||[];
+  names.forEach((n,i)=>{menuDays[selDay].meals[selMeal].push({name:n,emoji:'🍽️',img:i===0?pendingImg:null});});
+  pendingImg=null;mNames=[''];toast(names.length>1?`เพิ่ม ${names.length} เมนูแล้ว`:'เพิ่มเมนูแล้ว');
   apiPost('saveMenuDay',{dayIndex:selDay,dateISO:menuDays[selDay].dateISO,mealKey:selMeal,items:menuDays[selDay].meals[selMeal]});
   const meals=menuDays[selDay].meals;const ne=[0,1,2].find(i=>!(meals[MEALS[i][0]]||[]).length);if(ne!==undefined)selMeal=MEALS[ne][0];render();}
+function editItem(di,mk,idx){const it=menuDays[di].meals[mk][idx];const o=document.createElement('div');o.className='modal-ov';
+  o.innerHTML=`<div class="modal-bx"><div class="mi">✏️</div><div class="mt">แก้ไขชื่อเมนู</div><input class="txt" style="text-align:center;font-weight:700;margin-bottom:14px"><div style="display:flex;gap:10px"><button class="btn btn-ghost" style="margin:0;flex:1">ยกเลิก</button><button class="btn btn-brand" style="margin:0;flex:1">บันทึก</button></div></div>`;
+  const inp=o.querySelector('input'),btns=o.querySelectorAll('button');inp.value=it.name;
+  btns[0].onclick=()=>o.remove();
+  btns[1].onclick=()=>{const n=inp.value.trim();if(!n){toast('กรุณาใส่ชื่อเมนู');return;}it.name=n;
+    apiPost('saveMenuDay',{dayIndex:di,dateISO:menuDays[di].dateISO,mealKey:mk,items:menuDays[di].meals[mk]});
+    o.remove();toast('แก้ไขแล้ว ✓');render();};
+  inp.onkeydown=e=>{if(e.key==='Enter')btns[1].onclick();};
+  document.querySelector('.screen').appendChild(o);setTimeout(()=>{inp.focus();inp.select();},60);}
 function delItem(di,mk,idx){menuDays[di].meals[mk].splice(idx,1);
   apiPost('saveMenuDay',{dayIndex:di,dateISO:menuDays[di].dateISO,mealKey:mk,items:menuDays[di].meals[mk]});
   render();}
-function renderMList(){document.getElementById('mList').innerHTML=menuDays.map((dd,di)=>{const d=thDateISO(dd.dateISO);const meals=MEALS.filter(m=>(dd.meals[m[0]]||[]).length).map(m=>dd.meals[m[0]].map((x,idx)=>`<div class="menu-manage"><div class="em" ${x.img?`onclick="openLightbox(menuDays[${di}].meals['${m[0]}'][${idx}].img)"`:''}>${x.img?`<img src="${x.img}">`:x.emoji}</div><div style="flex:1"><div style="font-weight:600">${x.name}</div><div style="color:var(--muted);font-size:12.5px">${m[2]} ${m[1]}${x.img?' · 📷 มีรูป (กดดู)':''}</div></div><button class="del" onclick="delItem(${di},'${m[0]}',${idx})">🗑</button></div>`).join('')).join('');return `<div style="margin-bottom:6px"><div style="font-weight:700;font-size:13px;color:var(--info);margin:8px 2px">${d.dow} ${d.short}</div>${meals||'<div class="note" style="text-align:left;padding:4px">— ยังไม่มีเมนู —</div>'}</div>`;}).join('');}
+function renderMList(){document.getElementById('mList').innerHTML=menuDays.map((dd,di)=>{const d=thDateISO(dd.dateISO);const meals=MEALS.filter(m=>(dd.meals[m[0]]||[]).length).map(m=>dd.meals[m[0]].map((x,idx)=>`<div class="menu-manage"><div class="em" ${x.img?`onclick="openLightbox(menuDays[${di}].meals['${m[0]}'][${idx}].img)"`:''}>${x.img?`<img src="${x.img}">`:x.emoji}</div><div style="flex:1"><div style="font-weight:600">${x.name}</div><div style="color:var(--muted);font-size:12.5px">${m[2]} ${m[1]}${x.img?' · 📷 มีรูป (กดดู)':''}</div></div><button class="del" style="background:var(--info-l);color:var(--info);margin-right:6px" onclick="editItem(${di},'${m[0]}',${idx})">✏️</button><button class="del" onclick="delItem(${di},'${m[0]}',${idx})">🗑</button></div>`).join('')).join('');return `<div style="margin-bottom:6px"><div style="font-weight:700;font-size:13px;color:var(--info);margin:8px 2px">${d.dow} ${d.short}</div>${meals||'<div class="note" style="text-align:left;padding:4px">— ยังไม่มีเมนู —</div>'}</div>`;}).join('');}
 
 function aggMeal(){const c={breakfast:0,lunch:0,dinner:0};Object.values(registrations).forEach(days=>Object.values(days).forEach(r=>MEALS.forEach(m=>{if(r[m[0]])c[m[0]]++;})));return c;}
 function aggDay(){return menuDays.map((day,di)=>{let n=0;Object.values(registrations).forEach(days=>{const r=days[di];if(r)MEALS.forEach(m=>{if(r[m[0]])n++;});});return{label:thDateISO(day.dateISO).dow.slice(0,2)+' '+thDateISO(day.dateISO).short,val:n};});}
