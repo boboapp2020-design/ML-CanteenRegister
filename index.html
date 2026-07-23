@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>แอปลงทะเบียนรับประทานอาหารที่โรงครัว · มิตรลาว</title>
 <meta name="theme-color" content="#062F6E">
 <meta name="color-scheme" content="only light">
@@ -27,6 +27,7 @@
     --sh:0 4px 16px rgba(15,23,42,.08); --sh-lg:0 18px 40px rgba(15,23,42,.16);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
   html,body{margin:0;height:100%;}
   body{font-family:'IBM Plex Sans Thai','Sarabun',system-ui,sans-serif;background:#dfe6ee;color:var(--ink);}
   .shell{max-width:520px;margin:0 auto;padding:18px 16px 40px;}
@@ -47,6 +48,11 @@
   @media(max-width:640px){
     body{background:var(--bg);} .shell{padding:0;max-width:100%;} .demo-head,.caption{display:none;}
     .phone{padding:0;border-radius:0;width:100%;box-shadow:none;} .screen{border-radius:0;height:100vh;height:100dvh;}
+  }
+  /* ติดตั้งเป็นแอป (มือถือ/แท็บเล็ตทุกขนาดจอ) = เต็มจอเสมอ */
+  @media(display-mode:standalone),(display-mode:fullscreen){
+    body{background:var(--bg);} .shell{padding:0;max-width:100%;} .demo-head,.caption{display:none;}
+    .phone{padding:0;border-radius:0;width:100%;box-shadow:none;} .screen{border-radius:0;height:100vh;height:100dvh;max-width:640px;margin:0 auto;}
   }
 
   .card{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:15px;box-shadow:var(--sh-sm);margin-bottom:12px;}
@@ -2624,13 +2630,19 @@ function askPIN(title,msg,cb){const o=document.createElement('div');o.className=
   btns[1].onclick=()=>{if(inp.value===getPIN()){o.remove();cb();}else{inp.value='';inp.placeholder='PIN ไม่ถูกต้อง';inp.style.borderColor='var(--neg)';setTimeout(()=>{inp.placeholder='····';inp.style.borderColor='';},1200);}};
   inp.onkeydown=e=>{if(e.key==='Enter')btns[1].onclick();};
   document.querySelector('.screen').appendChild(o);setTimeout(()=>inp.focus(),60);}
-function go(s){try{if(screen!==s)history.pushState({screen:s},'');}catch(e){}screen=s;render();}
-/* ปุ่ม back ของมือถือ: ปิดป๊อปอัป/ย้อนหน้าในแอป แทนการปิดแอป (ออกได้เฉพาะที่หน้าแรก) */
+/* ปุ่ม back ของมือถือ: ปิดป๊อปอัป → ย้อนหน้าในแอป → กด back ที่หน้าแรก = ออกจากแอป */
+let navDepth=0;
+function go(s){
+  if(s==='home'&&navDepth>0){try{const n=navDepth;navDepth=0;history.go(-n);return;}catch(e){}}
+  try{if(screen!==s)history.pushState({screen:s,d:++navDepth},'');}catch(e){}
+  screen=s;render();
+}
 function safeScreen(s){if(!s)return 'home';if((s==='userReg'||s==='userDone')&&!currentUser)return 'home';if((s==='fbForm'||s==='fbDone')&&!fbUser)return 'home';return s;}
-try{history.replaceState({screen:'home'},'');}catch(e){}
+try{history.replaceState({screen:'home',d:0},'');}catch(e){}
 window.addEventListener('popstate',function(e){
   const ov=document.querySelector('.modal-ov,.lightbox');
-  if(ov){ov.remove();try{history.pushState({screen:screen},'');}catch(e2){}return;}
+  if(ov){ov.remove();try{history.pushState({screen:screen,d:navDepth},'');}catch(e2){}return;}
+  navDepth=(e.state&&e.state.d)||0;
   screen=safeScreen(e.state&&e.state.screen);render();
 });
 function render(){const map={home:renderHome,empSearch:renderEmpSearch,adminPin:renderAdminPin,adminPinSet:renderAdminPinSet,adminHub:renderAdminHub,adminMenu:renderAdminMenu,adminDash:renderAdminDash,adminData:renderAdminData,adminEmp:renderAdminEmp,adminQR:renderAdminQR,checkin:renderCheckin,userCode:renderUserCode,userReg:renderUserReg,userDone:renderUserDone,regClosed:renderRegClosed,fbCode:renderFbCode,fbForm:renderFbForm,fbDone:renderFbDone,userHelp:renderUserHelp};setTop();body().className='app-body'+(screen==='home'?' center':'');(map[screen]||renderHome)();}
