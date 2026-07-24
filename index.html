@@ -2557,7 +2557,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='2.0';
+const APP_VERSION='2.1';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -2632,7 +2632,7 @@ function applyStateFromAPI(st){rounds=st.rounds||rounds;startDate=isoDateStr(st.
   const menu=st.menu||{};
   Object.keys(menu).forEach(di=>{const d=Number(di);if(!menuDays[d])return;Object.keys(menu[di]).forEach(mk=>{menuDays[d].meals[mk]=menu[di][mk]||[];});});
   menuReady=Object.keys(menu).length>0;
-  menuPublished=!!Number(st.menuPub||0);
+  menuPublished=(st.menuPub===undefined||st.menuPub===null||st.menuPub==='')?true:!!Number(st.menuPub);
   registrations={};
   const regs=st.registrations||{};
   Object.keys(regs).forEach(code=>{registrations[code]={};Object.keys(regs[code]).forEach(di=>{registrations[code][Number(di)]=regs[code][di];});});
@@ -2867,7 +2867,10 @@ function publishMenu(){
   const o=document.createElement('div');o.className='modal-ov';
   o.innerHTML=`<div class="modal-bx"><div class="mi">✅</div><div class="mt">ยืนยันเมนูของรอบนี้?</div><div class="mm">เมื่อยืนยันแล้ว เมนูจะแสดงให้พนักงานทันที<br>และจะ<b>แก้ไข/เพิ่มเมนูรอบนี้ไม่ได้อีก</b></div><div style="display:flex;gap:10px"><button class="btn btn-ghost" style="margin:0;flex:1">ยกเลิก</button><button class="btn btn-brand" style="margin:0;flex:1">ยืนยัน</button></div></div>`;
   const btns=o.querySelectorAll('button');btns[0].onclick=()=>o.remove();
-  btns[1].onclick=()=>{o.remove();menuPublished=true;apiPost('saveConfig',{menuPub:1});menuStep='round';toast('ยืนยันเมนูรอบนี้แล้ว ✓');render();};
+  btns[1].onclick=()=>{o.remove();menuPublished=true;menuStep='round';render();
+    apiPost('saveConfig',{menuPub:1}).then(res=>{
+      if(res&&res.ok)toast('ยืนยันเมนูรอบนี้แล้ว ✓ พนักงานเห็นเมนูได้ทันที');
+      else showPopup('⚠️','บันทึกการยืนยันไม่สำเร็จ','เชื่อมต่อฐานข้อมูลไม่ได้ กรุณาตรวจอินเทอร์เน็ต<br>แล้วกดยืนยันเมนูอีกครั้ง');});};
   document.querySelector('.screen').appendChild(o);}
 function pickRound(n){captureSnap();rounds=n;rebuildDays();menuStep='date';render();}
 function pickStart(v){if(v){startDate=v;rebuildDays();render();}}
