@@ -2677,26 +2677,38 @@ function askPIN(title,msg,cb){const o=document.createElement('div');o.className=
   inp.onkeydown=e=>{if(e.key==='Enter')btns[1].onclick();};
   document.querySelector('.screen').appendChild(o);setTimeout(()=>inp.focus(),60);}
 /* ปุ่ม back ของมือถือ: ปิดป๊อปอัป → ย้อนหน้าในแอป → กด back ที่หน้าแรก = ออกจากแอป */
-let navDepth=0;
+/* ===== การนำทาง (navigation) — ใช้ stack เดียวเป็นแหล่งความจริง กันหน้าจอเด้งไปมา ===== */
+let navStack=['home'];
+const BACK_TO={empSearch:'home',adminPin:'home',adminPinSet:'adminHub',adminHub:'home',adminMenu:'adminHub',adminDash:'adminHub',adminData:'adminHub',adminEmp:'adminHub',adminQR:'adminHub',checkin:'home',todayMenu:'home',appMenu:'home',userCode:'home',userReg:'home',userDone:'home',regClosed:'home',fbCode:'home',fbForm:'home',fbDone:'home',userHelp:'home'};
 function go(s){
   document.querySelectorAll('.modal-ov,.lightbox').forEach(x=>x.remove());
-  if(s==='home'&&navDepth>0){try{const n=navDepth;navDepth=0;history.go(-n);return;}catch(e){}}
-  try{if(screen!==s)history.pushState({screen:s,d:++navDepth},'');}catch(e){}
-  screen=s;render();
+  if(s==='home'){navStack=['home'];screen='home';try{history.pushState({d:1},'');}catch(e){}render();return;}
+  if(s===screen){render();return;}
+  navStack.push(s);screen=s;
+  try{history.pushState({d:navStack.length},'');}catch(e){}
+  render();
+}
+/* ปุ่มย้อนกลับ ‹ ด้านล่าง — บนหน้าลงทะเบียนวันที่ >1 ให้ย้อนไปแก้วันก่อนหน้า ไม่ใช่หลุดออกหน้าแรก */
+function smartBack(){
+  document.querySelectorAll('.modal-ov,.lightbox').forEach(x=>x.remove());
+  if(screen==='userReg'&&regDayIdx>0){prevDay();return;}
+  go(BACK_TO[screen]||'home');
 }
 function safeScreen(s){if(!s)return 'home';if((s==='userReg'||s==='userDone')&&!currentUser)return 'home';if((s==='fbForm'||s==='fbDone')&&!fbUser)return 'home';return s;}
-try{history.replaceState({screen:'home',d:0},'');}catch(e){}
+try{history.replaceState({d:1},'');}catch(e){}
 window.addEventListener('popstate',function(e){
   const ov=document.querySelector('.modal-ov,.lightbox');
-  if(ov){ov.remove();try{history.pushState({screen:screen,d:navDepth},'');}catch(e2){}return;}
-  navDepth=(e.state&&e.state.d)||0;
-  screen=safeScreen(e.state&&e.state.screen);render();
+  if(ov){ov.remove();try{history.pushState({d:navStack.length},'');}catch(e2){}return;}
+  if(navStack.length>1)navStack.pop();
+  screen=safeScreen(navStack[navStack.length-1]);
+  try{history.pushState({d:navStack.length},'');}catch(e2){}
+  render();
 });
 function render(){const map={home:renderHome,empSearch:renderEmpSearch,adminPin:renderAdminPin,adminPinSet:renderAdminPinSet,adminHub:renderAdminHub,adminMenu:renderAdminMenu,adminDash:renderAdminDash,adminData:renderAdminData,adminEmp:renderAdminEmp,adminQR:renderAdminQR,checkin:renderCheckin,todayMenu:renderTodayMenu,appMenu:renderAppMenu,userCode:renderUserCode,userReg:renderUserReg,userDone:renderUserDone,regClosed:renderRegClosed,fbCode:renderFbCode,fbForm:renderFbForm,fbDone:renderFbDone,userHelp:renderUserHelp};setTop();body().className='app-body'+(screen==='home'?' center':'');(map[screen]||renderHome)();}
 function setTop(){const titles={empSearch:'ค้นหาพนักงาน',adminPin:'เข้าสู่ระบบผู้ดูแล',adminPinSet:'ตั้งค่า PIN',adminHub:'ผู้ดูแลระบบ',adminMenu:'จัดเมนู',adminDash:'แดชบอร์ด',adminData:'ข้อมูล & ส่งออก',adminEmp:'จัดการพนักงาน',adminQR:'QR เช็คอิน',checkin:'เช็คอินโรงอาหาร',todayMenu:'เมนูอาหาร',appMenu:'เกี่ยวกับแอป',userCode:'ลงทะเบียน',userReg:'ลงทะเบียน',userDone:'สำเร็จ',regClosed:'ลงทะเบียน',fbCode:'ข้อเสนอแนะ',fbForm:'ให้คะแนน & ข้อเสนอแนะ',fbDone:'ขอบคุณ',userHelp:'วิธีใช้งาน'};
   const backTo={empSearch:'home',adminPin:'home',adminPinSet:'adminHub',adminHub:'home',adminMenu:'adminHub',adminDash:'adminHub',adminData:'adminHub',adminEmp:'adminHub',adminQR:'adminHub',checkin:'home',todayMenu:'home',appMenu:'home',userCode:'home',userReg:'home',userDone:'home',regClosed:'home',fbCode:'home',fbForm:'home',fbDone:'home',userHelp:'home'};
   if(screen==='home'){hdrEl().className='hdr';hdrEl().innerHTML=`<div class="bm"><img src="${LOGO_CO}"></div><div><div class="bt">โรงครัวมิตรลาว</div><div class="bs">ลงทะเบียนรับประทานอาหาร</div></div><button class="nav" style="margin-left:auto;font-size:21px" onclick="go('appMenu')">☰</button>`;return;}
-  hdrEl().className='hdr hdr-bottom';hdrEl().innerHTML=`<button class="nav" onclick="go('home')">⌂</button><span class="title" style="margin:0 auto">${titles[screen]||''}</span><button class="nav" onclick="go('${backTo[screen]||'home'}')">‹</button>`;}
+  hdrEl().className='hdr hdr-bottom';hdrEl().innerHTML=`<button class="nav" onclick="go('home')">⌂</button><span class="title" style="margin:0 auto">${titles[screen]||''}</span><button class="nav" onclick="smartBack()">‹</button>`;}
 
 function renderHome(){const dl=thDateISO(ymd(addDays(startDate,-1)));const dlTxt=regOpen()?`⏰ เปิดลงทะเบียนถึง ${dl.dow} ${dl.short} เวลา 17:00 น.`:`⏰ ปิดรับลงทะเบียนรอบนี้แล้ว`;body().innerHTML=`
   <div style="text-align:center;margin-bottom:20px">
@@ -2719,7 +2731,16 @@ function doSearch(){const qEl=document.getElementById('q');const q=((qEl&&qEl.va
 function pickUser(code){if(!regOpen()){go('regClosed');return;}if(!userMenuReady()){noMenuPopup();return;}if(regComplete(code)){alreadyRegPopup();return;}currentUser=employees.find(e=>e.code===code);registrations[code]=registrations[code]||{};regDayIdx=firstIncompleteDay(code);go('userReg');}
 
 function userMenuReady(){return menuPublished&&menuHasFood();}
-function startUser(){if(apiEnabled()){apiGetState().then(st=>{applyStateFromAPI(st);startUserGo();}).catch(()=>startUserGo());}else startUserGo();}
+let _startBusy=false;
+function startUser(){
+  if(_startBusy)return;                 /* กันกดซ้ำระหว่างกำลังโหลด */
+  if(!apiEnabled()){startUserGo();return;}
+  _startBusy=true;let done=false;
+  const slow=setTimeout(()=>{if(!done)toast('กำลังโหลดข้อมูล...');},450);   /* โชว์เฉพาะตอนเน็ตช้า */
+  const finish=()=>{if(done)return;done=true;clearTimeout(slow);clearTimeout(timer);_startBusy=false;startUserGo();};
+  const timer=setTimeout(finish,7000);  /* เน็ตค้าง 7 วิ ก็ให้เข้าต่อด้วยข้อมูลที่มี ไม่ค้างหน้าจอ */
+  apiGetState().then(function(st){try{applyStateFromAPI(st);}catch(e){}finish();},function(){finish();});
+}
 function startUserGo(){if(!regOpen()){go('regClosed');return;}if(!userMenuReady()){noMenuPopup();return;}codeInput='';go('userCode');}
 function renderRegClosed(){body().innerHTML=`<div style="text-align:center;padding-top:10px"><div style="font-size:62px;margin-bottom:10px">⏰</div><h2 style="font-size:21px;margin:0 0 10px;color:var(--brand)">หมดเวลาลงทะเบียนรอบนี้แล้วจ้า</h2><p style="color:var(--muted);font-size:15.5px;line-height:1.85;margin:0 0 20px">รอติดตามเมนูอาหารรอบหน้า 🍚<br><span style="font-size:13px">ระบบเปิดให้ลงทะเบียนถึงเวลา 17:00 น.<br>ของวันก่อนวันเริ่มรอบ (เวลาประเทศไทย)</span></p></div><button class="btn btn-brand" onclick="go('home')">กลับหน้าแรก</button>`;}
 function renderUserCode(){body().innerHTML=`<div class="card" style="text-align:center;padding-top:18px"><div style="width:62px;height:62px;border-radius:17px;background:var(--brand-soft);display:grid;place-items:center;font-size:30px;margin:0 auto 6px">👤</div><div style="font-weight:700;font-size:18px">ใส่รหัสพนักงานของคุณ</div><div class="code-display" id="codeDisp">${codeInput||'—'}</div></div>
