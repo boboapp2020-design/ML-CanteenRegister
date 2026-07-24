@@ -38,6 +38,7 @@
   .phone{width:392px;max-width:100%;background:#0b1220;border-radius:44px;padding:11px;box-shadow:var(--sh-lg);}
   .screen{background:var(--bg);border-radius:34px;overflow:hidden;height:788px;position:relative;display:flex;flex-direction:column;}
   .hdr{flex-shrink:0;min-height:58px;display:flex;align-items:center;gap:11px;padding:12px 15px;background:var(--card);border-bottom:1px solid var(--line);z-index:5;}
+  .hdr.hdr-bottom{order:3;border-bottom:none;border-top:1px solid var(--line);}
   .hdr .nav{background:var(--bg);border:1px solid var(--line);border-radius:11px;width:38px;height:38px;font-size:19px;cursor:pointer;color:var(--ink2);display:grid;place-items:center;flex-shrink:0;}
   .hdr .title{font-weight:700;font-size:17px;}
   .hdr .bm{width:42px;height:42px;border-radius:11px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;overflow:hidden;flex-shrink:0;} .hdr .bm img{width:100%;height:100%;object-fit:contain;padding:3px;}
@@ -2506,10 +2507,10 @@ function buildEmployees(){
   UNITS=[...new Set(employees.map(e=>e.unit))];
 }
 buildEmployees();
-/* พนักงานรายวัน (ระดับ 3) ใช้สิทธิ์ได้เฉพาะคาบกลางวัน */
+/* พนักงานรายวัน (ระดับ 3) ใช้สิทธิ์ได้เฉพาะคาบเที่ยง */
 function empMeals(e){return e&&e.daily?MEALS.filter(m=>m[0]==='lunch'):MEALS;}
 function availMealsFor(e,di){return empMeals(e).filter(m=>(menuDays[di].meals[m[0]]||[]).length>0);}
-const MEALS=[['breakfast','คาบเช้า','☀️'],['lunch','คาบกลางวัน','🍽️'],['dinner','คาบเย็น','🌙']];
+const MEALS=[['breakfast','คาบเช้า','☀️'],['lunch','คาบเที่ยง','🍽️'],['dinner','คาบเย็น','🌙']];
 const THMON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 const THDOW=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
 function ymd(d){const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
@@ -2517,7 +2518,8 @@ function addDays(iso,n){const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+
 function thDateISO(iso){const d=new Date(iso+'T00:00:00');return{dow:THDOW[d.getDay()],short:d.getDate()+' '+THMON[d.getMonth()],ymd:(d.getFullYear()+543)};}
 let rounds=3, startDate=ymd(addDays(ymd(new Date()),1));
 /* ปิดลงทะเบียน 23:59 น. (เวลาไทย) ของวันก่อนวันเริ่มรอบ */
-function regOpen(){const cutoff=new Date(startDate+'T00:00:00+07:00');return Date.now()<cutoff.getTime();}
+/* ปิดลงทะเบียน 17:00 น. (เวลาไทย) ของวันก่อนวันเริ่มรอบ */
+function regOpen(){const cutoff=new Date(startDate+'T00:00:00+07:00').getTime()-7*3600*1000;return Date.now()<cutoff;}
 function periodLabel(){const a=thDateISO(menuDays[0].dateISO),b=thDateISO(menuDays[menuDays.length-1].dateISO);return `งวด ${a.short} – ${b.short} ${b.ymd}`;}
 function rebuildDays(){const old=menuDays||[];const arr=[];for(let i=0;i<rounds;i++){arr.push({dateISO:ymd(addDays(startDate,i)),meals:(old[i]&&old[i].meals)?old[i].meals:{breakfast:[],lunch:[],dinner:[]}});}menuDays=arr;}
 
@@ -2557,7 +2559,7 @@ function doCheckin(){const mk=currentMealWindow();
   go('checkin');}
 const APP_VERSION='2.0';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
-/* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 กลางวัน+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
+/* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
   if(n.hm>'18:00')nextDay=true;
   else if(n.hm>'13:00')meals=['dinner'];
@@ -2567,7 +2569,8 @@ function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'
   else if(di<0){di=menuDays.findIndex(d=>d.dateISO>n.date);if(di>=0)meals=['breakfast','lunch','dinner'];nextDay=di>=0;}
   if(di<0||di>=menuDays.length)return null;
   return {di:di,meals:meals,nextDay:nextDay};}
-function renderTodayMenu(){const info=todayMenuInfo();
+function openTodayMenu(){if(apiEnabled()){apiGetState().then(st=>{applyStateFromAPI(st);go('todayMenu');}).catch(()=>go('todayMenu'));}else go('todayMenu');}
+function renderTodayMenu(){const info=menuPublished?todayMenuInfo():null;
   if(!info||!info.meals.some(mk=>(menuDays[info.di].meals[mk]||[]).length)){body().innerHTML=`<div style="text-align:center;padding-top:14px"><div style="font-size:56px;margin-bottom:8px">🍽️</div><h2 style="font-size:21px;margin:0 0 6px;color:var(--brand)">ยังไม่มีเมนูอาหาร</h2><p style="color:var(--muted);font-size:14.5px;line-height:1.85;margin:0 0 16px">รอติดตามเมนูอาหารเร็ว ๆ นี้จ้า 🍚</p></div><button class="btn btn-brand" onclick="go('home')">กลับหน้าแรก</button>`;return;}
   const day=menuDays[info.di],d=thDateISO(day.dateISO);
   const cards=MEALS.filter(m=>info.meals.includes(m[0])).map(m=>{const items=day.meals[m[0]]||[];
@@ -2615,7 +2618,7 @@ function allDatasets(scope){const arr=[{menuDays:menuDays,registrations:registra
 /* ===== Google Sheets backend sync (optional) =====
    ใส่ URL ของ Google Apps Script Web App ที่นี่ (ลงท้ายด้วย /exec)
    ถ้าปล่อยว่าง แอปจะทำงานแบบ demo (ข้อมูลอยู่ในเครื่องเท่านั้น ไม่ sync ข้ามอุปกรณ์) */
-const API_URL = 'https://script.google.com/macros/s/AKfycbzzWixOUDXjnftwGzBDeybyyO821ya0MxS5S6nazjL7Nr0arlztsy8VPdNIhsrJPnLQ/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxqQqQNUxlCBF98iLsMNunliAE9WJn3PTgVR6Y6FClio2dLoxIhlOmA5WjmPShHat0/exec';
 function apiEnabled(){return !!API_URL;}
 function apiGetState(){return fetch(API_URL+'?action=state').then(r=>r.json());}
 function apiPost(action,data){if(!apiEnabled())return Promise.resolve({ok:true});
@@ -2629,6 +2632,7 @@ function applyStateFromAPI(st){rounds=st.rounds||rounds;startDate=isoDateStr(st.
   const menu=st.menu||{};
   Object.keys(menu).forEach(di=>{const d=Number(di);if(!menuDays[d])return;Object.keys(menu[di]).forEach(mk=>{menuDays[d].meals[mk]=menu[di][mk]||[];});});
   menuReady=Object.keys(menu).length>0;
+  menuPublished=!!Number(st.menuPub||0);
   registrations={};
   const regs=st.registrations||{};
   Object.keys(regs).forEach(code=>{registrations[code]={};Object.keys(regs[code]).forEach(di=>{registrations[code][Number(di)]=regs[code][di];});});
@@ -2648,6 +2652,7 @@ function boot(){
     seedRegs();
     seedHistory();
     seedCheckins();
+    menuPublished=true;
     afterBoot();
   }
 }
@@ -2656,7 +2661,7 @@ let screen='home',currentUser=null,regDayIdx=0,pinInput='',codeInput='',selDay=0
 let dashUnitMode='reg',dashPersonMode='reg',dashScope='current',unitQuery='',expandedStack=null;
 let histRounds=[],pendingSnap=null,snapCaptured=false;
 let fbCode='',fbUser=null,fbRatings={},fbComment='',fbFallback=[];
-let menuStep='round',menuReady=false;
+let menuStep='round',menuReady=false,menuPublished=false;
 let npNew='',npConfirm='',npStage='new';
 const body=()=>document.getElementById('appBody');
 const hdrEl=()=>document.getElementById('hdr');
@@ -2688,13 +2693,13 @@ window.addEventListener('popstate',function(e){
 function render(){const map={home:renderHome,empSearch:renderEmpSearch,adminPin:renderAdminPin,adminPinSet:renderAdminPinSet,adminHub:renderAdminHub,adminMenu:renderAdminMenu,adminDash:renderAdminDash,adminData:renderAdminData,adminEmp:renderAdminEmp,adminQR:renderAdminQR,checkin:renderCheckin,todayMenu:renderTodayMenu,appMenu:renderAppMenu,userCode:renderUserCode,userReg:renderUserReg,userDone:renderUserDone,regClosed:renderRegClosed,fbCode:renderFbCode,fbForm:renderFbForm,fbDone:renderFbDone,userHelp:renderUserHelp};setTop();body().className='app-body'+(screen==='home'?' center':'');(map[screen]||renderHome)();}
 function setTop(){const titles={empSearch:'ค้นหาพนักงาน',adminPin:'เข้าสู่ระบบผู้ดูแล',adminPinSet:'ตั้งค่า PIN',adminHub:'ผู้ดูแลระบบ',adminMenu:'จัดเมนู',adminDash:'แดชบอร์ด',adminData:'ข้อมูล & ส่งออก',adminEmp:'จัดการพนักงาน',adminQR:'QR เช็คอิน',checkin:'เช็คอินโรงอาหาร',todayMenu:'เมนูอาหาร',appMenu:'เกี่ยวกับแอป',userCode:'ลงทะเบียน',userReg:'ลงทะเบียน',userDone:'สำเร็จ',regClosed:'ลงทะเบียน',fbCode:'ข้อเสนอแนะ',fbForm:'ให้คะแนน & ข้อเสนอแนะ',fbDone:'ขอบคุณ',userHelp:'วิธีใช้งาน'};
   const backTo={empSearch:'home',adminPin:'home',adminPinSet:'adminHub',adminHub:'home',adminMenu:'adminHub',adminDash:'adminHub',adminData:'adminHub',adminEmp:'adminHub',adminQR:'adminHub',checkin:'home',todayMenu:'home',appMenu:'home',userCode:'home',userReg:'home',userDone:'home',regClosed:'home',fbCode:'home',fbForm:'home',fbDone:'home',userHelp:'home'};
-  if(screen==='home'){hdrEl().innerHTML=`<div class="bm"><img src="${LOGO_CO}"></div><div><div class="bt">โรงครัวมิตรลาว</div><div class="bs">ลงทะเบียนรับประทานอาหาร</div></div><button class="nav" style="margin-left:auto;font-size:21px" onclick="go('appMenu')">☰</button>`;return;}
-  hdrEl().innerHTML=`<button class="nav" onclick="go('${backTo[screen]||'home'}')">‹</button><span class="title">${titles[screen]||''}</span><button class="nav" style="margin-left:auto" onclick="go('home')">⌂</button>`;}
+  if(screen==='home'){hdrEl().className='hdr';hdrEl().innerHTML=`<div class="bm"><img src="${LOGO_CO}"></div><div><div class="bt">โรงครัวมิตรลาว</div><div class="bs">ลงทะเบียนรับประทานอาหาร</div></div><button class="nav" style="margin-left:auto;font-size:21px" onclick="go('appMenu')">☰</button>`;return;}
+  hdrEl().className='hdr hdr-bottom';hdrEl().innerHTML=`<button class="nav" onclick="go('home')">⌂</button><span class="title" style="margin:0 auto">${titles[screen]||''}</span><button class="nav" onclick="go('${backTo[screen]||'home'}')">‹</button>`;}
 
-function renderHome(){const dl=thDateISO(ymd(addDays(startDate,-1)));const dlTxt=regOpen()?`⏰ เปิดลงทะเบียนถึง ${dl.dow} ${dl.short} เวลา 23:59 น.`:`⏰ ปิดรับลงทะเบียนรอบนี้แล้ว`;body().innerHTML=`
+function renderHome(){const dl=thDateISO(ymd(addDays(startDate,-1)));const dlTxt=regOpen()?`⏰ เปิดลงทะเบียนถึง ${dl.dow} ${dl.short} เวลา 17:00 น.`:`⏰ ปิดรับลงทะเบียนรอบนี้แล้ว`;body().innerHTML=`
   <div style="text-align:center;margin-bottom:20px">
-    <img src="${LOGO_APP}" alt="app" onclick="go('todayMenu')" style="width:116px;height:116px;border-radius:27px;box-shadow:0 12px 28px rgba(6,47,110,.28);display:block;margin:0 auto 6px;cursor:pointer">
-    <div onclick="go('todayMenu')" style="color:var(--info);font-size:12px;font-weight:700;margin-bottom:8px;cursor:pointer">แตะโลโก้เพื่อดูเมนูวันนี้ 🍽️</div>
+    <img src="${LOGO_APP}" alt="app" onclick="openTodayMenu()" style="width:116px;height:116px;border-radius:27px;box-shadow:0 12px 28px rgba(6,47,110,.28);display:block;margin:0 auto 6px;cursor:pointer">
+    <div onclick="openTodayMenu()" style="color:var(--info);font-size:12px;font-weight:700;margin-bottom:8px;cursor:pointer">แตะโลโก้เพื่อดูเมนูวันนี้ 🍽️</div>
     <div class="home-name">แอปลงทะเบียนรับประทาน<br>อาหารที่โรงครัว</div>
     <div class="home-co"><img src="${LOGO_CO}" style="height:19px;vertical-align:middle;margin-right:5px">บริษัท น้ำตาลมิตรลาว จำกัด</div>
   </div>
@@ -2709,18 +2714,20 @@ function renderEmpSearch(){body().innerHTML=`<div class="hint">💡 พิมพ
   <div class="card" id="results" style="padding:6px"></div>`;doSearch();setTimeout(()=>{const el=document.getElementById('q');if(el)el.focus();},50);}
 function doSearch(){const qEl=document.getElementById('q');const q=((qEl&&qEl.value)||'').trim().toLowerCase();let list=employees.filter(e=>!q||e.code.includes(q)||e.name.toLowerCase().includes(q)||e.dept.toLowerCase().includes(q)).slice(0,8);
   document.getElementById('results').innerHTML=list.length?list.map(e=>`<div class="emp-item" onclick="pickUser('${e.code}')"><div style="flex:1"><div class="nm">${e.name}</div><div class="dp">${e.dept}</div></div><span class="code-badge">${e.code}</span></div>`).join(''):`<div class="note" style="padding:22px">ไม่พบพนักงาน</div>`;}
-function pickUser(code){if(!regOpen()){go('regClosed');return;}if(!menuHasFood()){noMenuPopup();return;}if(regComplete(code)){alreadyRegPopup();return;}currentUser=employees.find(e=>e.code===code);registrations[code]=registrations[code]||{};regDayIdx=firstIncompleteDay(code);go('userReg');}
+function pickUser(code){if(!regOpen()){go('regClosed');return;}if(!userMenuReady()){noMenuPopup();return;}if(regComplete(code)){alreadyRegPopup();return;}currentUser=employees.find(e=>e.code===code);registrations[code]=registrations[code]||{};regDayIdx=firstIncompleteDay(code);go('userReg');}
 
-function startUser(){if(!regOpen()){go('regClosed');return;}if(!menuHasFood()){noMenuPopup();return;}codeInput='';go('userCode');}
-function renderRegClosed(){body().innerHTML=`<div style="text-align:center;padding-top:10px"><div style="font-size:62px;margin-bottom:10px">⏰</div><h2 style="font-size:21px;margin:0 0 10px;color:var(--brand)">หมดเวลาลงทะเบียนรอบนี้แล้วจ้า</h2><p style="color:var(--muted);font-size:15.5px;line-height:1.85;margin:0 0 20px">รอติดตามเมนูอาหารรอบหน้า 🍚<br><span style="font-size:13px">ระบบเปิดให้ลงทะเบียนถึงเวลา 23:59 น.<br>ของวันก่อนวันเริ่มรอบ (เวลาประเทศไทย)</span></p></div><button class="btn btn-brand" onclick="go('home')">กลับหน้าแรก</button>`;}
+function userMenuReady(){return menuPublished&&menuHasFood();}
+function startUser(){if(apiEnabled()){apiGetState().then(st=>{applyStateFromAPI(st);startUserGo();}).catch(()=>startUserGo());}else startUserGo();}
+function startUserGo(){if(!regOpen()){go('regClosed');return;}if(!userMenuReady()){noMenuPopup();return;}codeInput='';go('userCode');}
+function renderRegClosed(){body().innerHTML=`<div style="text-align:center;padding-top:10px"><div style="font-size:62px;margin-bottom:10px">⏰</div><h2 style="font-size:21px;margin:0 0 10px;color:var(--brand)">หมดเวลาลงทะเบียนรอบนี้แล้วจ้า</h2><p style="color:var(--muted);font-size:15.5px;line-height:1.85;margin:0 0 20px">รอติดตามเมนูอาหารรอบหน้า 🍚<br><span style="font-size:13px">ระบบเปิดให้ลงทะเบียนถึงเวลา 17:00 น.<br>ของวันก่อนวันเริ่มรอบ (เวลาประเทศไทย)</span></p></div><button class="btn btn-brand" onclick="go('home')">กลับหน้าแรก</button>`;}
 function renderUserCode(){body().innerHTML=`<div class="card" style="text-align:center;padding-top:18px"><div style="width:62px;height:62px;border-radius:17px;background:var(--brand-soft);display:grid;place-items:center;font-size:30px;margin:0 auto 6px">👤</div><div style="font-weight:700;font-size:18px">ใส่รหัสพนักงานของคุณ</div><div class="code-display" id="codeDisp">${codeInput||'—'}</div></div>
   <div class="keypad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button onclick="keyCode('${n}')">${n}</button>`).join('')}<button class="act" onclick="keyCode('del')">⌫</button><button onclick="keyCode('0')">0</button><button class="act" onclick="keyCode('ok')">✓</button></div>
   <button class="btn btn-ghost" style="margin-top:12px" onclick="go('empSearch')">🔍 จำรหัสไม่ได้? ค้นหาชื่อ</button>`;}
-function keyCode(k){if(k==='del')codeInput=codeInput.slice(0,-1);else if(k==='ok'){const e=employees.find(x=>x.code===codeInput);if(!e){toast('ไม่พบรหัสนี้ ลองค้นหาชื่อ');return;}if(!menuHasFood()){noMenuPopup();return;}if(regComplete(e.code)){alreadyRegPopup();return;}currentUser=e;registrations[e.code]=registrations[e.code]||{};regDayIdx=firstIncompleteDay(e.code);go('userReg');return;}else if(codeInput.length<6)codeInput+=k;const d=document.getElementById('codeDisp');if(d)d.textContent=codeInput||'—';}
+function keyCode(k){if(k==='del')codeInput=codeInput.slice(0,-1);else if(k==='ok'){const e=employees.find(x=>x.code===codeInput);if(!e){toast('ไม่พบรหัสนี้ ลองค้นหาชื่อ');return;}if(!userMenuReady()){noMenuPopup();return;}if(regComplete(e.code)){alreadyRegPopup();return;}currentUser=e;registrations[e.code]=registrations[e.code]||{};regDayIdx=firstIncompleteDay(e.code);go('userReg');return;}else if(codeInput.length<6)codeInput+=k;const d=document.getElementById('codeDisp');if(d)d.textContent=codeInput||'—';}
 
 /* ---- combined day registration: per-meal buttons under each menu + shortcuts ---- */
 function renderUserReg(){const di=regDayIdx,day=menuDays[di],d=thDateISO(day.dateISO),am=availMealsFor(currentUser,di);const rec=(registrations[currentUser.code]||{})[di]||{};
-  body().innerHTML=`<div class="hero"><div class="n">${currentUser.name}</div><div class="meta">รหัส ${currentUser.code} · ${currentUser.dept}</div>${currentUser.daily?'<div style="margin-top:7px"><span style="background:rgba(255,255,255,.2);padding:4px 11px;border-radius:9px;font-size:12.5px;font-weight:700">👷 พนักงานรายวัน · ลงได้เฉพาะคาบกลางวัน</span></div>':''}</div>
+  body().innerHTML=`<div class="hero"><div class="n">${currentUser.name}</div><div class="meta">รหัส ${currentUser.code} · ${currentUser.dept}</div>${currentUser.daily?'<div style="margin-top:7px"><span style="background:rgba(255,255,255,.2);padding:4px 11px;border-radius:9px;font-size:12.5px;font-weight:700">👷 พนักงานรายวัน · ลงได้เฉพาะคาบเที่ยง</span></div>':''}</div>
   <div class="progress">${menuDays.map((_,i)=>`<span class="${i<di?'on':i===di?'cur':''}"></span>`).join('')}</div>
   <div class="datehdr"><div class="sub">วันที่ ${di+1} จาก ${menuDays.length} · เลือกการทานแต่ละคาบ</div><div class="big">${d.dow} ${d.short}</div></div>
   ${am.map(m=>{const items=day.meals[m[0]];const sel=rec[m[0]];
@@ -2757,7 +2764,7 @@ function keyNewPin(k){let buf=npStage==='new'?npNew:npConfirm;if(k==='del')buf=b
   if(buf.length===4&&k!=='del'){if(npStage==='new'){setTimeout(()=>{npStage='confirm';render();},130);return;}else{if(npConfirm===npNew){setPINstore(npNew);toast('บันทึก PIN ใหม่แล้ว ✓');setTimeout(()=>{npNew='';npConfirm='';npStage='new';go('adminHub');},650);}else{toast('รหัสไม่ตรงกัน ลองใหม่');npNew='';npConfirm='';npStage='new';setTimeout(render,300);}return;}}render();}
 
 function renderAdminHub(){body().innerHTML=`<div class="note" style="text-align:left;padding:0 2px 12px;color:var(--ink2);font-weight:600;font-size:14px">เลือกเมนูที่ต้องการ</div>
-  <button class="hub-btn hub-primary" onclick="selDay=0;selMeal='breakfast';menuStep=menuReady?'edit':'round';go('adminMenu')"><span class="ic">🍽️</span><span>จัดเมนู<small>เพิ่มเมนูรายวัน แยกคาบ + แนบรูป · แก้ไขได้จนกว่าจะเริ่มรอบใหม่</small></span></button>
+  <button class="hub-btn hub-primary" onclick="selDay=0;selMeal='breakfast';menuStep=menuReady?'edit':'round';go('adminMenu')"><span class="ic">🍽️</span><span>จัดเมนู<small>เพิ่มเมนูรายวัน แยกคาบ + แนบรูป · กดยืนยันเพื่อเผยแพร่ให้พนักงาน</small></span></button>
   <button class="hub-btn" onclick="dashTab='overview';go('adminDash')"><span class="ic ic-blue">📊</span><span>แดชบอร์ด<small>เมนูฮิต · วัน · คาบ · แผนก · รายคน</small></span></button>
   <button class="hub-btn" onclick="go('adminData')"><span class="ic ic-amber">📋</span><span>ข้อมูล & ส่งออก Excel<small>ดูรายคน · แชร์เป็นไฟล์ Excel</small></span></button>
   <button class="hub-btn" onclick="empMgmtMode='add';empDelQ='';empFormReset();go('adminEmp')"><span class="ic ic-blue">👥</span><span>จัดการพนักงาน<small>เพิ่ม / ลบ พนักงานในฐานข้อมูล (ยืนยันด้วย PIN)</small></span></button>
@@ -2777,10 +2784,10 @@ function renderAdminEmp(){
       <label class="fld">ชื่อ</label><input class="txt" placeholder="ชื่อ" value="${empForm.fname}" oninput="empForm.fname=this.value">
       <label class="fld">นามสกุล</label><input class="txt" placeholder="นามสกุล" value="${empForm.lname}" oninput="empForm.lname=this.value">
       <label class="fld">หน่วยงาน</label><select class="txt" onchange="empForm.unit=this.value"><option value="">— เลือกหน่วยงาน —</option>${UNITS.map(u=>`<option value="${u}" ${empForm.unit===u?'selected':''}>${u}</option>`).join('')}</select>
-      <label class="fld">สิทธิ์ <span style="color:var(--neg)">*สำคัญ</span></label><select class="txt" onchange="empForm.right=this.value"><option value="">— เลือกสิทธิ์ —</option><option value="reg" ${empForm.right==='reg'?'selected':''}>ระดับ 4+ (ครบ 3 คาบ)</option><option value="daily" ${empForm.right==='daily'?'selected':''}>รายวัน - ระดับ 3 (เฉพาะคาบกลางวัน)</option></select>
+      <label class="fld">สิทธิ์ <span style="color:var(--neg)">*สำคัญ</span></label><select class="txt" onchange="empForm.right=this.value"><option value="">— เลือกสิทธิ์ —</option><option value="reg" ${empForm.right==='reg'?'selected':''}>ระดับ 4+ (ครบ 3 คาบ)</option><option value="daily" ${empForm.right==='daily'?'selected':''}>รายวัน - ระดับ 3 (เฉพาะคาบเที่ยง)</option></select>
     </div>
     <button class="btn btn-brand" onclick="addEmpConfirm()">✓ ยืนยันการเพิ่มพนักงาน</button>
-    <div class="note">สิทธิ์มีผลต่อการจัดเก็บข้อมูล: ระดับ 4+ ลงได้ 3 คาบ · รายวันลงได้เฉพาะคาบกลางวัน</div>`;
+    <div class="note">สิทธิ์มีผลต่อการจัดเก็บข้อมูล: ระดับ 4+ ลงได้ 3 คาบ · รายวันลงได้เฉพาะคาบเที่ยง</div>`;
   } else {
     body().innerHTML=`${seg}<div class="hint" style="background:var(--neg-l);color:#991b1b">⚠️ การลบจะนำพนักงานออกจากฐานข้อมูล ต้องยืนยันด้วย PIN ทุกครั้ง</div>
     <div class="search-wrap"><span class="ic">🔍</span><input id="empDelQ" placeholder="ค้นหาชื่อ หรือ รหัสพนักงาน" value="${empDelQ}" oninput="empDelQ=this.value;drawEmpDelList()" autocomplete="off"></div>
@@ -2801,7 +2808,7 @@ function addEmpConfirm(){
   if(!empForm.unit){toast('กรุณาเลือกหน่วยงาน');return;}
   if(!empForm.right){toast('กรุณาเลือกสิทธิ์');return;}
   const daily=empForm.right==='daily';
-  askPIN('ยืนยันการเพิ่มพนักงาน',`<b>${name}</b> · รหัส ${code}<br>${empForm.unit} · ${daily?'รายวัน - ระดับ 3 (เฉพาะกลางวัน)':'ระดับ 4+'}<br>ใส่ PIN ผู้ดูแลเพื่อยืนยัน`,()=>{
+  askPIN('ยืนยันการเพิ่มพนักงาน',`<b>${name}</b> · รหัส ${code}<br>${empForm.unit} · ${daily?'รายวัน - ระดับ 3 (เฉพาะเที่ยง)':'ระดับ 4+'}<br>ใส่ PIN ผู้ดูแลเพื่อยืนยัน`,()=>{
     EMP_ADD.push({code:code,name:name,dept:empForm.unit,unit:empForm.unit,daily:daily});
     saveEmpEdits();buildEmployees();empFormReset();renderAdminEmp();
     toast('เพิ่มพนักงานแล้ว ✓');});}
@@ -2835,6 +2842,7 @@ function downloadQRPoster(){const url=ciUrl();const W=800,H=930,cv=document.crea
   shareCanvas(cv);}
 
 function renderAdminMenu(){if(selDay>=menuDays.length)selDay=0;
+ if(menuStep==='edit'&&menuPublished){body().innerHTML=`<div class="card" style="text-align:center;padding:28px 18px"><div style="font-size:52px">✅</div><h2 style="font-size:19px;margin:10px 0 6px;color:var(--pos)">ยืนยันเมนูรอบนี้แล้ว</h2><p style="color:var(--muted);font-size:14px;line-height:1.85;margin:0">เมนูแสดงให้พนักงานเรียบร้อยแล้ว<br>ไม่สามารถแก้ไขหรือเพิ่มเมนูของรอบนี้ซ้ำได้</p></div><button class="btn btn-brand" onclick="menuStep='round';render()">เริ่มจัดรอบใหม่ →</button><button class="btn btn-ghost" onclick="go('adminHub')">กลับเมนูผู้ดูแล</button>`;return;}
  if(menuStep==='round'){body().innerHTML=`<div class="hint">ขั้นที่ 1 — เลือก “รอบ” จำนวนวันที่จะเปิดลงทะเบียน (บังคับเลือกก่อน)</div><div class="card"><label class="fld">เลือกรอบ (จำนวนวัน)</label><div class="chips">${[2,3,4].map(n=>`<button class="${rounds===n?'active':''}" onclick="pickRound(${n})">${n} วัน</button>`).join('')}</div><div class="note" style="text-align:left;margin-top:8px">เลือกจำนวนวันก่อน จากนั้นระบบจะให้เลือก “วันแรก” แล้ววันถัด ๆ ไปจะถูกสร้างให้อัตโนมัติตามรอบ</div></div>`;return;}
  if(menuStep==='date'){body().innerHTML=`<div class="hint">ขั้นที่ 2 — เลือก “วันแรก” (รอบ ${rounds} วัน) · วันอื่นต่อให้อัตโนมัติ</div><div class="card"><label class="fld">รอบ (จำนวนวัน)</label><div class="chips">${[2,3,4].map(n=>`<button class="${rounds===n?'active':''}" onclick="pickRound(${n})">${n} วัน</button>`).join('')}</div><label class="fld">วันแรก</label><input class="txt" type="date" value="${startDate}" onchange="pickStart(this.value)"><div class="card" style="background:var(--brand-soft);border-color:var(--brand-l);margin-top:12px;margin-bottom:0"><div style="font-weight:700;font-size:13px;color:var(--brand);margin-bottom:6px">📅 วันที่จะเปิด (สร้างอัตโนมัติ)</div>${menuDays.map((d,i)=>{const t=thDateISO(d.dateISO);return `<div style="font-size:14px;padding:3px 0">วันที่ ${i+1}: <b>${t.dow} ${t.short}</b></div>`;}).join('')}</div></div><button class="btn btn-brand" onclick="confirmSetup()">ยืนยัน แล้วไปเพิ่มเมนู →</button>`;return;}
  const dayDone=i=>MEALS.every(m=>(menuDays[i].meals[m[0]]||[]).length>0);
@@ -2843,7 +2851,7 @@ function renderAdminMenu(){if(selDay>=menuDays.length)selDay=0;
  const smeals=menuDays[selDay].meals;const fe=[0,1,2].find(i=>!(smeals[MEALS[i][0]]||[]).length);const mealUnlock=(fe===undefined)?2:fe;
  if(MEALS.findIndex(m=>m[0]===selMeal)>mealUnlock)selMeal=MEALS[mealUnlock][0];
  body().innerHTML=`<div class="card" style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-weight:700;font-size:15px">รอบ ${rounds} วัน</div><div style="color:var(--muted);font-size:12.5px">${thDateISO(menuDays[0].dateISO).dow} ${thDateISO(menuDays[0].dateISO).short} → ${thDateISO(menuDays[menuDays.length-1].dateISO).dow} ${thDateISO(menuDays[menuDays.length-1].dateISO).short}</div></div><button class="btn-ghost" style="width:auto;padding:9px 12px;font-size:13px;border-radius:10px;box-shadow:none" onclick="menuStep='round';render()">เปลี่ยนรอบ/วัน</button></div>
-  <div class="hint">กรอกเมนูให้ครบทั้ง 3 คาบ (เช้า→กลางวัน→เย็น) ตามลำดับ · วันถัดไปจะปลดล็อก 🔒 เมื่อกรอกครบ ✓</div>
+  <div class="hint">กรอกเมนูให้ครบทั้ง 3 คาบ (เช้า→เที่ยง→เย็น) ตามลำดับ · วันถัดไปจะปลดล็อก 🔒 เมื่อกรอกครบ ✓</div>
   <div class="card"><label class="fld">เลือกวัน</label><div class="chips day">${menuDays.map((dd,i)=>{const d=thDateISO(dd.dateISO);const lock=i>unlockDay,done=dayDone(i);return `<button class="${selDay===i?'active':''}" ${lock?'disabled':''} style="flex:1;min-width:0;padding:9px 3px;font-size:12px;line-height:1.25;${lock?'opacity:.35':''}" onclick="${lock?'':`selDay=${i};render()`}">${d.dow.slice(0,2)}<br>${d.short}${done?' ✓':lock?' 🔒':''}</button>`;}).join('')}</div>
     <label class="fld">เลือกคาบ (ไล่ตามลำดับ)</label><div class="chips">${MEALS.map((m,i)=>{const filled=(smeals[m[0]]||[]).length>0,lock=i>mealUnlock;return `<button class="${selMeal===m[0]?'active':''}" ${lock?'disabled':''} style="${lock?'opacity:.35':''}" onclick="${lock?'':`selMeal='${m[0]}';render()`}">${m[2]}<br>${m[1].replace('คาบ','')}${filled?' ✓':lock?' 🔒':''}</button>`;}).join('')}</div>
     <label class="fld">ชื่อเมนู <span style="color:var(--muted);font-weight:500;font-size:12px">(กด + ถ้าคาบนี้มีมากกว่า 1 เมนู)</span></label>
@@ -2851,14 +2859,23 @@ function renderAdminMenu(){if(selDay>=menuDays.length)selDay=0;
     <label class="fld">รูปอาหาร (ถ้ามี)</label><div class="img-drop" onclick="document.getElementById('mImg').click()">📎 แตะเพื่อเลือกรูปจากเครื่อง</div>
     <input type="file" id="mImg" accept="image/*" class="hide" onchange="prevImg(event)"><img id="mPrev" class="img-preview hide">
     <button class="btn btn-brand" style="margin-top:14px" onclick="addMenu()">ยืนยันเพิ่มเมนู</button></div>
-  <div class="card"><div class="sec-title">เมนูที่บันทึกไว้</div><div id="mList"></div></div>`;renderMList();}
+  <div class="card"><div class="sec-title">เมนูที่บันทึกไว้</div><div id="mList"></div></div>
+  <button class="btn btn-brand" onclick="publishMenu()">✅ ยืนยันเมนูของรอบนี้ (เผยแพร่ให้พนักงาน)</button>
+  <div class="note">พนักงานจะเห็นเมนูและลงทะเบียนได้ <b>หลังกดยืนยัน</b> เท่านั้น · ยืนยันแล้วแก้ไขไม่ได้จนกว่าจะเริ่มรอบใหม่</div>`;renderMList();}
+function publishMenu(){
+  if(!menuHasFood()){toast('ยังไม่มีเมนู กรุณาเพิ่มเมนูก่อน');return;}
+  const o=document.createElement('div');o.className='modal-ov';
+  o.innerHTML=`<div class="modal-bx"><div class="mi">✅</div><div class="mt">ยืนยันเมนูของรอบนี้?</div><div class="mm">เมื่อยืนยันแล้ว เมนูจะแสดงให้พนักงานทันที<br>และจะ<b>แก้ไข/เพิ่มเมนูรอบนี้ไม่ได้อีก</b></div><div style="display:flex;gap:10px"><button class="btn btn-ghost" style="margin:0;flex:1">ยกเลิก</button><button class="btn btn-brand" style="margin:0;flex:1">ยืนยัน</button></div></div>`;
+  const btns=o.querySelectorAll('button');btns[0].onclick=()=>o.remove();
+  btns[1].onclick=()=>{o.remove();menuPublished=true;apiPost('saveConfig',{menuPub:1});menuStep='round';toast('ยืนยันเมนูรอบนี้แล้ว ✓');render();};
+  document.querySelector('.screen').appendChild(o);}
 function pickRound(n){captureSnap();rounds=n;rebuildDays();menuStep='date';render();}
 function pickStart(v){if(v){startDate=v;rebuildDays();render();}}
 function confirmSetup(){rebuildDays();
   if(pendingSnap){histRounds.push(pendingSnap);pendingSnap=null;}
   snapCaptured=false;
   menuDays=emptyMenuDays();registrations={};
-  if(apiEnabled())apiPost('newRound',{rounds:rounds,startDate:startDate});
+  menuPublished=false;if(apiEnabled())apiPost('newRound',{rounds:rounds,startDate:startDate,menuPub:0});
   menuReady=true;menuStep='edit';selDay=0;selMeal='breakfast';render();}
 let pendingImg=null;
 let mNames=[''];
@@ -2902,7 +2919,7 @@ function renderAdminDash(){const mc=aggMeal(),totalEat=mc.breakfast+mc.lunch+mc.
   <div id="dashBody"></div>`;renderDashBody();}
 function scopeSeg(){return `<div class="seg" style="margin-bottom:10px"><button class="${dashScope==='current'?'active':''}" onclick="dashScope='current';renderDashBody()">รอบนี้</button><button class="${dashScope==='all'?'active':''}" onclick="dashScope='all';renderDashBody()">สะสมทั้งหมด (${histRounds.length+1} รอบ)</button></div>`;}
 function renderDashBody(){const box=document.getElementById('dashBody');
-  if(dashTab==='overview'){box.innerHTML=`<div class="card"><div class="sec-title">จำนวนคนที่จะมาทาน (คน)<span class="cap">วัน × คาบ</span><button class="share-ic" onclick="shareImage()" title="แชร์เป็นภาพ">📤</button></div>${gridHTML()}</div><div class="card"><div class="sec-title">สถานะการมาใช้สิทธิ์ของพนักงาน ระดับ 4+<span class="cap">รวม ${REG_EMPS.length} คน</span><button class="share-ic" onclick="shareStatusImage('reg')" title="แชร์เป็นภาพ">📤</button></div>${legendHTML()}${menuDays.map((day,di)=>statusRow(thDateISO(day.dateISO).dow.slice(0,2)+' '+thDateISO(day.dateISO).short,perDayPersonG(di,REG_EMPS))).join('')}</div><div class="card"><div class="sec-title">สถานะการมาใช้สิทธิ์ของพนักงาน รายวัน - ระดับ 3<span class="cap">รวม ${DAILY_EMPS.length} คน · เฉพาะกลางวัน</span><button class="share-ic" onclick="shareStatusImage('daily')" title="แชร์เป็นภาพ">📤</button></div>${legendHTML()}${menuDays.map((day,di)=>statusRow(thDateISO(day.dateISO).dow.slice(0,2)+' '+thDateISO(day.dateISO).short,perDayPersonG(di,DAILY_EMPS))).join('')}</div>`;}
+  if(dashTab==='overview'){box.innerHTML=`<div class="card"><div class="sec-title">จำนวนคนที่จะมาทาน (คน)<span class="cap">วัน × คาบ</span><button class="share-ic" onclick="shareImage()" title="แชร์เป็นภาพ">📤</button></div>${gridHTML()}</div><div class="card"><div class="sec-title">สถานะการมาใช้สิทธิ์ของพนักงาน ระดับ 4+<span class="cap">รวม ${REG_EMPS.length} คน</span><button class="share-ic" onclick="shareStatusImage('reg')" title="แชร์เป็นภาพ">📤</button></div>${legendHTML()}${menuDays.map((day,di)=>statusRow(thDateISO(day.dateISO).dow.slice(0,2)+' '+thDateISO(day.dateISO).short,perDayPersonG(di,REG_EMPS))).join('')}</div><div class="card"><div class="sec-title">สถานะการมาใช้สิทธิ์ของพนักงาน รายวัน - ระดับ 3<span class="cap">รวม ${DAILY_EMPS.length} คน · เฉพาะเที่ยง</span><button class="share-ic" onclick="shareStatusImage('daily')" title="แชร์เป็นภาพ">📤</button></div>${legendHTML()}${menuDays.map((day,di)=>statusRow(thDateISO(day.dateISO).dow.slice(0,2)+' '+thDateISO(day.dateISO).short,perDayPersonG(di,DAILY_EMPS))).join('')}</div>`;}
   else if(dashTab==='menu'){const rows=aggMenuScope(dashScope),max=Math.max(...rows.map(r=>r.val),1);box.innerHTML=`${scopeSeg()}<div class="card"><div class="sec-title">เมนูยอดฮิต<span class="cap">จำนวนครั้งที่ถูกเลือกทาน · สะสม</span></div>${rows.map((r,i)=>`<div class="row-item"><span class="rank ${i===0?'top':''}">${i+1}</span><div style="width:36px;height:36px;border-radius:9px;background:var(--bg);display:grid;place-items:center;font-size:20px;overflow:hidden">${r.img?`<img src="${r.img}" style="width:100%;height:100%;object-fit:cover">`:r.emoji}</div><div style="flex:1"><div style="font-weight:600;font-size:13.5px">${r.label}</div><div style="height:7px;background:var(--line);border-radius:5px;margin-top:5px;overflow:hidden"><div style="height:100%;width:${r.val/max*100}%;background:var(--brand);border-radius:5px"></div></div></div><div style="font-weight:800">${r.val} <span style="font-weight:500;font-size:11px;color:var(--muted)">ครั้ง</span></div></div>`).join('')||'<div class="note">ยังไม่มีข้อมูล</div>'}</div>`;}
   else if(dashTab==='unit'){box.innerHTML=`<div class="seg" style="margin-bottom:10px"><button class="${dashUnitMode==='reg'?'active':''}" onclick="dashUnitMode='reg';renderDashBody()">ลงทะเบียน</button><button class="${dashUnitMode==='eat'?'active':''}" onclick="dashUnitMode='eat';renderDashBody()">ทาน</button></div><div class="search-wrap"><span class="ic">🔍</span><input id="unitQ" placeholder="ค้นหาหน่วยงาน" value="${unitQuery}" oninput="unitQuery=this.value;redrawUnit()"></div><div class="card"><div class="sec-title" id="unitTitle"></div><canvas id="ch" width="600" height="440" style="width:100%;height:auto"></canvas></div><div class="note" id="unitNote"></div>`;redrawUnit();}
   else if(dashTab==='actual'){let gE=0,gC=0;
@@ -2914,7 +2931,7 @@ function renderDashBody(){const box=document.getElementById('dashBody');
     const gp=gE?Math.round(gC/gE*100):0;
     box.innerHTML=`<div class="hint">🧾 เทียบ "ลงทะเบียนว่าทาน" กับ "มาสแกน QR จริง" คาบต่อคาบ (รอบปัจจุบัน)</div>
     <div class="kpi-row"><div class="kpi"><div style="font-size:12px;color:var(--muted);font-weight:600">ลงว่าทาน (ทั้งรอบ)</div><div style="font-size:26px;font-weight:800;color:var(--brand)">${gE}</div></div><div class="kpi"><div style="font-size:12px;color:var(--muted);font-weight:600">มาใช้จริง (สแกน)</div><div style="font-size:26px;font-weight:800;color:${gp>=85?'var(--pos)':gp>=60?'var(--amber)':'var(--neg)'}">${gC} <span style="font-size:15px">(${gp}%)</span></div></div></div>
-    ${dayCards}<div class="note">ข้อมูลสแกนมาจาก QR หน้าโรงอาหาร · เปิดสแกนตามช่วงเวลา: เช้า ${CI_WINDOWS.breakfast[0]}–${CI_WINDOWS.breakfast[1]} · กลางวัน ${CI_WINDOWS.lunch[0]}–${CI_WINDOWS.lunch[1]} · เย็น ${CI_WINDOWS.dinner[0]}–${CI_WINDOWS.dinner[1]} น.</div>`;}
+    ${dayCards}<div class="note">ข้อมูลสแกนมาจาก QR หน้าโรงอาหาร · เปิดสแกนตามช่วงเวลา: เช้า ${CI_WINDOWS.breakfast[0]}–${CI_WINDOWS.breakfast[1]} · เที่ยง ${CI_WINDOWS.lunch[0]}–${CI_WINDOWS.lunch[1]} · เย็น ${CI_WINDOWS.dinner[0]}–${CI_WINDOWS.dinner[1]} น.</div>`;}
   else{const rows=sortPersons(personStats());const mL={reg:'% ลงทะเบียน',eat:'% ทาน',no:'% ไม่ทาน'};box.innerHTML=`<div class="seg" style="margin-bottom:10px"><button class="${dashPersonMode==='reg'?'active':''}" onclick="dashPersonMode='reg';renderDashBody()">ลงทะเบียน</button><button class="${dashPersonMode==='eat'?'active':''}" onclick="dashPersonMode='eat';renderDashBody()">ทาน</button><button class="${dashPersonMode==='no'?'active':''}" onclick="dashPersonMode='no';renderDashBody()">ไม่ทาน</button></div><div class="search-wrap"><span class="ic">🔍</span><input placeholder="ค้นหาชื่อ/รหัส/หน่วยงาน" oninput="filterPerson(this.value)"></div><div class="card" id="pbox" style="padding:6px">${personRowsDash(rows.slice(0,25))}</div><div class="note">ภาพรวมข้อมูลทั้งหมดทุกรอบ (${histRounds.length+1} รอบ) · เรียง${mL[dashPersonMode]}มากสุด → น้อยสุด · แสดง 25 จาก ${rows.length} คน</div>`;}}
 /* หน่วยงาน: คิดเป็น % */
 function unitStats(scope){const info={};UNITS.forEach(u=>info[u]={total:0,reg:0,eat:0});employees.forEach(e=>{const inf=info[e.unit];if(!inf)return;inf.total++;let isReg=false,isEat=false;allDatasets(scope).forEach(d=>{const days=d.registrations[e.code]||{};Object.values(days).forEach(r=>MEALS.forEach(m=>{if(m[0] in r){isReg=true;if(r[m[0]])isEat=true;}}));});if(isReg)inf.reg++;if(isEat)inf.eat++;});return info;}
@@ -2982,7 +2999,7 @@ function shareStatusImage(kind){const list=kind==='daily'?DAILY_EMPS:REG_EMPS;co
   const D=menuDays,pad=40,W=880,headH=158,rowH=118,footH=56;const H=headH+rowH*D.length+footH;const cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d');
   x.fillStyle='#fff';x.fillRect(0,0,W,H);x.fillStyle='#062F6E';x.fillRect(0,0,W,100);
   x.textBaseline='middle';x.textAlign='left';x.fillStyle='#fff';x.font="800 26px 'IBM Plex Sans Thai','Sarabun',sans-serif";x.fillText(title,pad,42);
-  x.font="500 15px 'IBM Plex Sans Thai',sans-serif";x.fillStyle='#cfe9fb';x.fillText(periodLabel()+'   ·   พนักงานผู้มีสิทธิ์ '+list.length+' คน'+(kind==='daily'?'   ·   เฉพาะคาบกลางวัน':''),pad,76);
+  x.font="500 15px 'IBM Plex Sans Thai',sans-serif";x.fillStyle='#cfe9fb';x.fillText(periodLabel()+'   ·   พนักงานผู้มีสิทธิ์ '+list.length+' คน'+(kind==='daily'?'   ·   เฉพาะคาบเที่ยง':''),pad,76);
   x.font="700 15px 'IBM Plex Sans Thai',sans-serif";x.fillStyle='#16a34a';x.fillText('■ ทาน',pad,headH-26);x.fillStyle='#dc2626';x.fillText('■ ไม่ทาน',pad+92,headH-26);x.fillStyle='#94a3b8';x.fillText('■ ไม่ลงทะเบียน',pad+205,headH-26);
   D.forEach((day,di)=>{const d=thDateISO(day.dateISO),s=perDayPersonG(di,list),t=(s.eat+s.no+s.nr)||1,y=headH+di*rowH;
     x.fillStyle=di%2?'#f8fafc':'#fff';x.fillRect(0,y,W,rowH);
@@ -3006,9 +3023,9 @@ function shareCanvas(cv){cv.toBlob(async function(blob){const file=new File([blo
 function renderUserHelp(){body().innerHTML=`<div class="card"><div class="sec-title">📖 วิธีใช้งาน (สำหรับพนักงาน)</div><ol style="padding-left:20px;line-height:1.95;font-size:15px;margin:6px 0 0">
   <li>ที่หน้าแรก กดปุ่ม <b>“ลงทะเบียนรับประทานอาหาร”</b></li>
   <li>ใส่ <b>รหัสพนักงาน</b> แล้วกด <b>✓</b><br><span style="color:var(--muted);font-size:13px">(จำรหัสไม่ได้ กด “ค้นหาชื่อ” ได้)</span></li>
-  <li><b>สิทธิ์การใช้งาน</b> ระบบรู้จากรหัสอัตโนมัติ<br>• พนักงาน<b>ระดับ 4 ขึ้นไป</b> — ได้ <b>3 คาบ</b> (เช้า · กลางวัน · เย็น)<br>• พนักงาน<b>รายวัน - ระดับ 3</b> — ได้สิทธิ์<b>คาบกลางวัน</b><br><span style="color:var(--muted);font-size:13px">หน้าจอจะแสดงเฉพาะคาบที่มีสิทธิ์</span></li>
+  <li><b>สิทธิ์การใช้งาน</b> ระบบรู้จากรหัสอัตโนมัติ<br>• พนักงาน<b>ระดับ 4 ขึ้นไป</b> — ได้ <b>3 คาบ</b> (เช้า · เที่ยง · เย็น)<br>• พนักงาน<b>รายวัน - ระดับ 3</b> — ได้สิทธิ์<b>คาบเที่ยง</b><br><span style="color:var(--muted);font-size:13px">หน้าจอจะแสดงเฉพาะคาบที่มีสิทธิ์</span></li>
   <li>กดเลือก <span style="color:var(--pos);font-weight:800">ทาน</span> หรือ <span style="color:var(--neg);font-weight:800">ไม่ทาน</span> ให้ครบทุกคาบ แล้วกด <b>“ยืนยัน”</b> ทำจนครบทุกวัน จะขึ้น <b>“ลงทะเบียนสำเร็จ”</b></li>
-  <li>ลงทะเบียนได้ <b>1 ครั้งต่อรอบ</b> · ปิดรับเวลา <b>23:59 น.</b> ของวันก่อนเริ่มรอบ</li>
+  <li>ลงทะเบียนได้ <b>1 ครั้งต่อรอบ</b> · ปิดรับเวลา <b>17:00 น.</b> ของวันก่อนเริ่มรอบ</li>
   <li>เมื่อมาทานจริง <b>สแกน QR หน้าโรงอาหาร</b>ทุกครั้ง เพื่อยืนยันการใช้สิทธิ์</li>
 </ol></div>
 <div class="card"><div class="sec-title">💡 เกร็ดเพิ่มเติม</div><div style="font-size:14px;line-height:1.9">• แตะ<b>รูปอาหาร</b>เพื่อดูภาพใหญ่ · กด <b>“‹ กลับไปแก้ไข”</b> เพื่อย้อนแก้วันก่อนหน้า<br>• อยากให้คะแนน/แนะนำอาหาร กด <b>“ข้อเสนอแนะ”</b> ที่หน้าแรก (1 ครั้งต่อรอบ)</div></div>
