@@ -2,10 +2,6 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
-<link rel="icon" type="image/png" href="icon-192.png">
-
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>แอปลงทะเบียนรับประทานอาหารที่โรงครัว · มิตรลาว</title>
 <meta name="theme-color" content="#062F6E">
@@ -189,6 +185,9 @@
   .grid .totrow td{background:#dbeafe;font-weight:800;color:var(--brand);}
   .grid .rw-sub{display:block;font-size:10.5px;font-weight:700;color:#0A63B0;margin-top:2px;line-height:1.1;}
 </style>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 </head>
 <body>
 <div class="shell">
@@ -2568,7 +2567,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='2.3';
+const APP_VERSION='2.4';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -2631,7 +2630,7 @@ function allDatasets(scope){const arr=[{menuDays:menuDays,registrations:registra
    ถ้าปล่อยว่าง แอปจะทำงานแบบ demo (ข้อมูลอยู่ในเครื่องเท่านั้น ไม่ sync ข้ามอุปกรณ์) */
 const API_URL = 'https://script.google.com/macros/s/AKfycbzFXgTliQIklmbnypdoAQTJ4q_NTRqjhAQKZvK6fwqbzOChR3a_POURzGhPRqxlBK9T/exec';
 function apiEnabled(){return !!API_URL;}
-function apiGetState(){return fetch(API_URL+'?action=state').then(r=>r.json());}
+function apiGetState(){return fetch(API_URL+'?action=state',{cache:'no-store'}).then(r=>r.json());}
 function apiPost(action,data){if(!apiEnabled())return Promise.resolve({ok:true});
   return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({action:action},data))})
     .then(r=>r.json()).catch(err=>{console.warn('sync failed',err);toast('⚠️ ซิงก์ข้อมูลไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต');return{ok:false,error:String(err)};});}
@@ -2740,7 +2739,7 @@ function renderEmpSearch(){body().innerHTML=`<div class="hint">💡 พิมพ
   <div class="card" id="results" style="padding:6px"></div>`;doSearch();setTimeout(()=>{const el=document.getElementById('q');if(el)el.focus();},50);}
 function doSearch(){const qEl=document.getElementById('q');const q=((qEl&&qEl.value)||'').trim().toLowerCase();let list=employees.filter(e=>!q||e.code.includes(q)||e.name.toLowerCase().includes(q)||e.dept.toLowerCase().includes(q)).slice(0,8);
   document.getElementById('results').innerHTML=list.length?list.map(e=>`<div class="emp-item" onclick="pickUser('${e.code}')"><div style="flex:1"><div class="nm">${e.name}</div><div class="dp">${e.dept}</div></div><span class="code-badge">${e.code}</span></div>`).join(''):`<div class="note" style="padding:22px">ไม่พบพนักงาน</div>`;}
-function pickUser(code){if(!regOpen()){go('regClosed');return;}if(!userMenuReady()){noMenuPopup();return;}if(regBlocked(code)){alreadyRegPopup();return;}currentUser=employees.find(e=>e.code===code);registrations[code]=registrations[code]||{};regDayIdx=firstIncompleteDay(code);regSaves=[];go('userReg');}
+function pickUser(code){if(!regOpen()){go('regClosed');return;}if(!userMenuReady()){noMenuPopup();return;}if(regBlocked(code)){alreadyRegPopup();return;}currentUser=employees.find(e=>e.code===code);registrations[code]=registrations[code]||{};regDayIdx=firstIncompleteDay(code);go('userReg');}
 
 function userMenuReady(){return menuPublished&&menuHasFood();}
 /* ===== กันลงทะเบียนซ้ำ: บันทึกในเครื่อง + รอ server ยืนยันจริง ===== */
@@ -2768,7 +2767,7 @@ function renderRegClosed(){body().innerHTML=`<div style="text-align:center;paddi
 function renderUserCode(){body().innerHTML=`<div class="card" style="text-align:center;padding-top:18px"><div style="width:62px;height:62px;border-radius:17px;background:var(--brand-soft);display:grid;place-items:center;font-size:30px;margin:0 auto 6px">👤</div><div style="font-weight:700;font-size:18px">ใส่รหัสพนักงานของคุณ</div><div class="code-display" id="codeDisp">${codeInput||'—'}</div></div>
   <div class="keypad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button onclick="keyCode('${n}')">${n}</button>`).join('')}<button class="act" onclick="keyCode('del')">⌫</button><button onclick="keyCode('0')">0</button><button class="act" onclick="keyCode('ok')">✓</button></div>
   <button class="btn btn-ghost" style="margin-top:12px" onclick="go('empSearch')">🔍 จำรหัสไม่ได้? ค้นหาชื่อ</button>`;}
-function keyCode(k){if(k==='del')codeInput=codeInput.slice(0,-1);else if(k==='ok'){const e=employees.find(x=>x.code===codeInput);if(!e){toast('ไม่พบรหัสนี้ ลองค้นหาชื่อ');return;}if(!userMenuReady()){noMenuPopup();return;}if(regBlocked(e.code)){alreadyRegPopup();return;}currentUser=e;registrations[e.code]=registrations[e.code]||{};regDayIdx=firstIncompleteDay(e.code);regSaves=[];go('userReg');return;}else if(codeInput.length<6)codeInput+=k;const d=document.getElementById('codeDisp');if(d)d.textContent=codeInput||'—';}
+function keyCode(k){if(k==='del')codeInput=codeInput.slice(0,-1);else if(k==='ok'){const e=employees.find(x=>x.code===codeInput);if(!e){toast('ไม่พบรหัสนี้ ลองค้นหาชื่อ');return;}if(!userMenuReady()){noMenuPopup();return;}if(regBlocked(e.code)){alreadyRegPopup();return;}currentUser=e;registrations[e.code]=registrations[e.code]||{};regDayIdx=firstIncompleteDay(e.code);go('userReg');return;}else if(codeInput.length<6)codeInput+=k;const d=document.getElementById('codeDisp');if(d)d.textContent=codeInput||'—';}
 
 /* ---- combined day registration: per-meal buttons under each menu + shortcuts ---- */
 function renderUserReg(){const di=regDayIdx,day=menuDays[di],d=thDateISO(day.dateISO),am=availMealsFor(currentUser,di);const rec=(registrations[currentUser.code]||{})[di]||{};
@@ -2783,10 +2782,8 @@ function renderUserReg(){const di=regDayIdx,day=menuDays[di],d=thDateISO(day.dat
   <button class="btn btn-brand" onclick="confirmDay()">${di===menuDays.length-1?'ยืนยัน · เสร็จสิ้น':'ยืนยัน'}</button>
   <button class="btn btn-ghost" onclick="${di===0?'cancelReg()':'prevDay()'}">${di===0?'ยกเลิก':'‹ กลับไปแก้ไข'}</button>`;}
 function setMeal(di,mk,eat){registrations[currentUser.code]=registrations[currentUser.code]||{};registrations[currentUser.code][di]=registrations[currentUser.code][di]||{};registrations[currentUser.code][di][mk]=eat;render();}
-let regSaves=[];   /* เก็บผลการบันทึกของแต่ละวัน เพื่อรอ server ยืนยันจริง */
+/* เลือกครบแต่ละวันแล้วไปวันถัดไป — ยังไม่ส่ง server (ส่งทีเดียวทั้งรอบตอนจบ = atomic กันข้อมูลลงไม่ครบ) */
 function confirmDay(){const di=regDayIdx,am=availMealsFor(currentUser,di),rec=(registrations[currentUser.code]||{})[di]||{};if(!am.every(m=>m[0] in rec)){toast('กรุณาเลือกให้ครบทุกคาบ');return;}
-  const p=apiPost('saveRegistrationDay',{code:currentUser.code,dayIndex:di,breakfast:rec.breakfast,lunch:rec.lunch,dinner:rec.dinner}).then(r=>({di:di,ok:!!(r&&r.ok)}),()=>({di:di,ok:false}));
-  regSaves=regSaves.filter(s=>s.di!==di);regSaves.push({di:di,p:p});
   nextDay();}
 function prevDay(){if(regDayIdx>0){regDayIdx--;go('userReg');}}
 function cancelReg(){currentUser=null;go('home');}
@@ -2796,24 +2793,16 @@ function openLightbox(src){const o=document.createElement('div');o.className='li
 
 function renderUserDone(){const recs=registrations[currentUser.code]||{};
   let html=menuDays.map((day,di)=>{const d=thDateISO(day.dateISO),r=recs[di]||{};const rows=availMealsFor(currentUser,di).map(m=>`<div class="row-item"><span style="font-size:19px">${m[2]}</span><span style="flex:1;font-weight:600">${m[1]}</span><span class="pill ${r[m[0]]?'up':'no'}">${r[m[0]]?'ทาน':'ไม่ทาน'}</span></div>`).join('');return `<div class="card"><div class="sec-title">${d.dow} ${d.short}</div>${rows}</div>`;}).join('');
-  body().innerHTML=`<div style="text-align:center"><div class="done-check">✓</div><h2 style="font-size:22px;margin:0">ลงทะเบียนสำเร็จ</h2><p style="color:var(--muted);margin:5px 0 14px">${currentUser.name} · ${currentUser.code}</p><div id="saveStat" style="font-size:13.5px;margin:-4px 0 12px"></div></div>${html}<button class="btn btn-brand" onclick="go('home')">เสร็จสิ้น · กลับหน้าแรก</button>`;watchSaves();}
-/* รอผลบันทึกจาก server จริง ๆ — ไม่สำเร็จมีปุ่มส่งใหม่ (กันข้อมูลหายเงียบ = กันช่องโหว่ลงซ้ำ) */
-function watchSaves(){const el=()=>document.getElementById('saveStat');
-  if(!apiEnabled()){regDoneMark(currentUser.code);return;}
+  body().innerHTML=`<div style="text-align:center"><div class="done-check">✓</div><h2 style="font-size:22px;margin:0">ลงทะเบียนสำเร็จ</h2><p style="color:var(--muted);margin:5px 0 14px">${currentUser.name} · ${currentUser.code}</p><div id="saveStat" style="font-size:13.5px;margin:-4px 0 12px"></div></div>${html}<button class="btn btn-brand" onclick="go('home')">เสร็จสิ้น · กลับหน้าแรก</button>`;submitRegistration(currentUser.code);}
+/* ส่งข้อมูลทั้งรอบ "ครั้งเดียว" (atomic) — server เก็บครบทุกวันหรือไม่เก็บเลย ไม่มีทางลงไม่ครบ */
+function submitRegistration(code){const el=()=>document.getElementById('saveStat');
+  if(!apiEnabled()){regDoneMark(code);return;}
   if(el())el().innerHTML='<span style="color:var(--muted)">⏳ กำลังบันทึกลงฐานข้อมูล...</span>';
-  const myCode=currentUser.code;
-  Promise.all(regSaves.map(s=>s.p)).then(res=>{
-    if(screen!=='userDone')return finishSaveMark(myCode,res);
-    const fails=res.filter(r=>!r.ok);
-    if(!fails.length){regDoneMark(myCode);if(el())el().innerHTML='<span style="color:var(--pos);font-weight:700">✓ บันทึกลงฐานข้อมูลแล้ว</span>';}
-    else if(el())el().innerHTML=`<span style="color:var(--neg);font-weight:700">⚠️ ส่งข้อมูลไม่สำเร็จ ${fails.length} วัน (เน็ตขัดข้อง)</span><br><button class="btn btn-brand" style="margin:8px 0 0;padding:11px" onclick="retrySaves('${myCode}')">📡 ลองส่งอีกครั้ง</button>`;
-  });}
-function finishSaveMark(code,res){if(res.every(r=>r.ok))regDoneMark(code);}
-function retrySaves(code){
-  regSaves=menuDays.map((_,di)=>{const r=(registrations[code]||{})[di];if(!r||!Object.keys(r).length)return null;
-    const p=apiPost('saveRegistrationDay',{code:code,dayIndex:di,breakfast:r.breakfast,lunch:r.lunch,dinner:r.dinner}).then(x=>({di:di,ok:!!(x&&x.ok)}),()=>({di:di,ok:false}));
-    return {di:di,p:p};}).filter(Boolean);
-  watchSaves();}
+  const days={};menuDays.forEach((_,di)=>{const r=(registrations[code]||{})[di];if(r&&Object.keys(r).length)days[di]=r;});
+  apiPost('saveRegistration',{code:code,days:days}).then(res=>{
+    if(res&&res.ok){regDoneMark(code);if(el())el().innerHTML='<span style="color:var(--pos);font-weight:700">✓ บันทึกลงฐานข้อมูลแล้ว</span>';}
+    else if(el())el().innerHTML=`<span style="color:var(--neg);font-weight:700">⚠️ ส่งข้อมูลไม่สำเร็จ (เน็ตขัดข้อง)</span><br><button class="btn btn-brand" style="margin:8px 0 0;padding:11px" onclick="submitRegistration('${code}')">📡 ลองส่งอีกครั้ง</button>`;
+  },()=>{if(el())el().innerHTML=`<span style="color:var(--neg);font-weight:700">⚠️ ส่งข้อมูลไม่สำเร็จ (เน็ตขัดข้อง)</span><br><button class="btn btn-brand" style="margin:8px 0 0;padding:11px" onclick="submitRegistration('${code}')">📡 ลองส่งอีกครั้ง</button>`;});}
 
 /* ADMIN PIN login */
 function renderAdminPin(){body().innerHTML=`<div class="card" style="text-align:center;padding-top:18px"><div style="width:62px;height:62px;border-radius:17px;background:var(--bg);display:grid;place-items:center;font-size:30px;margin:0 auto 6px">🔐</div><div style="font-weight:700;font-size:18px">ใส่รหัส PIN 4 หลัก</div><div class="pin-dots" id="pinDots">${[0,1,2,3].map(i=>`<span class="${i<pinInput.length?'on':''}"></span>`).join('')}</div></div>
@@ -2988,7 +2977,7 @@ function aggMenu(){const arr=[];menuDays.forEach((day,di)=>{const d=thDateISO(da
 function aggPerson(){return employees.map(e=>{const days=registrations[e.code]||{};let reg=0;Object.values(days).forEach(r=>MEALS.forEach(m=>{if(m[0] in r)reg++;}));return{e,reg};}).sort((a,b)=>b.reg-a.reg);}
 function aggPersonByMode(mode){return employees.map(e=>{const days=registrations[e.code]||{};let cnt=0;if(mode==='eat'){Object.values(days).forEach(r=>MEALS.forEach(m=>{if(r[m[0]])cnt++;}));}else if(mode==='no'){Object.values(days).forEach(r=>MEALS.forEach(m=>{if(m[0] in r&&!r[m[0]])cnt++;}));}else{Object.values(days).forEach(r=>MEALS.forEach(m=>{if(m[0] in r)cnt++;}));}return{e,reg:cnt};}).sort((a,b)=>b.reg-a.reg);}
 
-function renderAdminDash(){const mc=aggMeal(),totalEat=mc.breakfast+mc.lunch+mc.dinner,regCount=Object.values(registrations).filter(d=>Object.keys(d).length).length,rate=Math.round(regCount/employees.length*100),bestMeal=MEALS.reduce((a,m)=>mc[m[0]]>mc[a[0]]?m:a);
+function renderAdminDash(){const mc=aggMeal(),totalEat=mc.breakfast+mc.lunch+mc.dinner,regCount=employees.filter(e=>regComplete(e.code)).length,rate=Math.round(regCount/employees.length*100),bestMeal=MEALS.reduce((a,m)=>mc[m[0]]>mc[a[0]]?m:a);
   body().innerHTML=`<div class="dash-top"><div class="period" style="margin:0">📅 ${periodLabel()}</div>${apiEnabled()?'<button class="rfr-btn" onclick="refreshDash(true)">🔄 รีเฟรช</button>':''}</div>
   <div class="dash-upd">${apiEnabled()?(dashUpdated?('🟢 อัปเดตล่าสุด '+dashUpdated+' · อัตโนมัติทุก 15 วิ'):'⏳ กำลังโหลดข้อมูลล่าสุด...'):'📴 โหมดเดโม (ไม่ได้ต่อฐานข้อมูล)'}</div>
   <div class="kpi-row"><div class="kpi g"><div class="v">${regCount}<span style="font-size:14px;color:var(--muted)">/${employees.length}</span></div><div class="l">พนักงานที่ลงทะเบียน</div><div class="sub" style="color:${rate>=80?'var(--pos)':'var(--amber)'}">เข้าร่วม ${rate}%</div></div>
@@ -3050,7 +3039,10 @@ function sortPersons(rows){if(dashPersonMode==='eat')rows.sort((a,b)=>b.eatPct-a
 function personPill(r){if(!r.avail)return `<span class="pill wait">ไม่มีคาบสิทธิ์</span>`;
   if(dashPersonMode==='eat')return `<span class="pill up">ทาน ${r.eatPct}% (${r.eatC}/${r.avail} คาบ)</span>`;
   if(dashPersonMode==='no')return `<span class="pill no">ไม่ทาน ${r.noPct}% (${r.noC}/${r.avail} คาบ)</span>`;
-  return r.regPct>=100?`<span class="pill up">ลงครบ 100% (${r.reg}/${r.avail} คาบ)</span>`:`<span class="pill" style="background:var(--amber-l);color:#92400e">ลง ${r.regPct}% (${r.reg}/${r.avail} คาบ)</span>`;}
+  /* ลงทะเบียน = ครบทั้งรอบเท่านั้น (1 รอบ = 1 ครั้ง) · ลงไม่ครบ = ข้อมูลเข้าไม่ครบ ควรให้ลงใหม่ */
+  if(r.reg===0)return `<span class="pill wait">ยังไม่ลงทะเบียน</span>`;
+  if(r.reg>=r.avail)return `<span class="pill up">ลงทะเบียนแล้ว ✓</span>`;
+  return `<span class="pill" style="background:var(--neg-l);color:var(--neg)">⚠️ ลงไม่ครบ (${r.reg}/${r.avail}) · ให้ลงใหม่</span>`;}
 function personRowsDash(rows){return rows.map(r=>`<div class="emp-item" style="cursor:default"><div style="flex:1"><div class="nm" style="font-size:15px">${r.e.name}</div><div class="dp">${r.e.code} · ${r.e.unit}</div></div>${personPill(r)}</div>`).join('');}
 function personRows(rows){return rows.map(({e,reg})=>`<div class="emp-item" style="cursor:default"><div style="flex:1"><div class="nm" style="font-size:15px">${e.name}</div><div class="dp">${e.code} · ${e.unit}</div></div><span class="pill ${reg>0?'up':'wait'}">${reg>0?'ลงทะเบียน '+reg+' คาบ':'ยังไม่ลง'}</span></div>`).join('');}
 function filterPerson(q){q=(q||'').toLowerCase();const rows=sortPersons(personStats()).filter(r=>r.e.code.includes(q)||r.e.name.toLowerCase().includes(q)||r.e.dept.toLowerCase().includes(q)||r.e.unit.toLowerCase().includes(q)).slice(0,30);document.getElementById('pbox').innerHTML=personRowsDash(rows);}
