@@ -2,6 +2,10 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>แอปลงทะเบียนรับประทานอาหารที่โรงครัว · มิตรลาว</title>
 <meta name="theme-color" content="#062F6E">
@@ -10,9 +14,6 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ลงทะเบียนอาหารโรงครัว">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
-<link rel="icon" type="image/png" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -2678,6 +2679,7 @@ function askPIN(title,msg,cb){const o=document.createElement('div');o.className=
 /* ปุ่ม back ของมือถือ: ปิดป๊อปอัป → ย้อนหน้าในแอป → กด back ที่หน้าแรก = ออกจากแอป */
 let navDepth=0;
 function go(s){
+  document.querySelectorAll('.modal-ov,.lightbox').forEach(x=>x.remove());
   if(s==='home'&&navDepth>0){try{const n=navDepth;navDepth=0;history.go(-n);return;}catch(e){}}
   try{if(screen!==s)history.pushState({screen:s,d:++navDepth},'');}catch(e){}
   screen=s;render();
@@ -3038,7 +3040,23 @@ function renderUserHelp(){body().innerHTML=`<div class="card"><div class="sec-ti
 boot();
 </script>
 <script>
-if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});}
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').then(reg=>{
+      reg.addEventListener('updatefound',()=>{
+        const nw=reg.installing;
+        if(nw)nw.addEventListener('statechange',()=>{
+          if(nw.state==='installed'&&navigator.serviceWorker.controller)nw.postMessage('SKIP_WAITING');
+        });
+      });
+      setInterval(()=>{reg.update().catch(()=>{});},60*60*1000);
+    }).catch(()=>{});
+    let reloaded=false;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      if(reloaded)return;reloaded=true;location.reload();
+    });
+  });
+}
 </script>
 </body>
 </html>
