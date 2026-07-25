@@ -190,6 +190,22 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 </head>
 <body>
+<div id="splashScreen" style="position:fixed;inset:0;z-index:9999;background:linear-gradient(170deg,#062F6E 0%,#0A63B0 45%,#00AEEF 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .5s">
+  <div style="position:relative;margin-bottom:36px">
+    <div id="splashIcon" style="width:96px;height:96px;border-radius:24px;box-shadow:0 8px 32px rgba(0,0,0,.35);overflow:hidden;animation:splashPop .6s ease-out both"></div>
+  </div>
+  <div style="color:#fff;font-weight:700;font-size:17px;margin-bottom:6px;opacity:.95;animation:splashFade .8s .3s both">ลงทะเบียนอาหารโรงครัว</div>
+  <div style="color:rgba(255,255,255,.6);font-size:12px;margin-bottom:28px;animation:splashFade .8s .5s both">บริษัท น้ำตาลมิตรลาว จำกัด</div>
+  <div style="width:200px;height:8px;border-radius:8px;background:rgba(255,255,255,.18);overflow:hidden;box-shadow:0 0 12px rgba(0,174,239,.3);animation:splashFade .6s .4s both">
+    <div id="splashBar" style="height:100%;width:0%;border-radius:8px;background:linear-gradient(90deg,#00AEEF,#4dd9ff,#00AEEF);background-size:200% 100%;animation:splashShimmer 1.2s linear infinite;transition:width .3s"></div>
+  </div>
+  <div id="splashMsg" style="color:rgba(255,255,255,.5);font-size:11.5px;margin-top:12px;animation:splashFade .8s .6s both">กำลังโหลดข้อมูล...</div>
+</div>
+<style>
+@keyframes splashPop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
+@keyframes splashFade{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes splashShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+</style>
 <div class="shell">
   <div class="demo-head"><h1>แอปลงทะเบียนรับประทานอาหารที่โรงครัว</h1><p>บริษัท น้ำตาลมิตรลาว จำกัด · Demo (ข้อมูลพนักงานจริง)</p></div>
   <div class="stage"><div class="phone"><div class="screen">
@@ -3137,6 +3153,28 @@ function renderUserHelp(){body().innerHTML=`<div class="card"><div class="sec-ti
 <button class="btn btn-brand" onclick="startUser()">เริ่มลงทะเบียนเลย →</button>
 <button class="btn btn-ghost" onclick="go('home')">กลับหน้าแรก</button>`;}
 
+/* === Splash screen === */
+const _splashStart=Date.now();
+(function(){
+  const si=document.getElementById('splashIcon');
+  if(si)si.innerHTML='<img src="'+LOGO_APP+'" style="width:100%;height:100%;object-fit:cover">';
+  const bar=document.getElementById('splashBar');
+  if(bar){bar.style.width='30%';setTimeout(()=>{bar.style.width='55%';},300);setTimeout(()=>{bar.style.width='80%';},800);}
+})();
+function hideSplash(){
+  const s=document.getElementById('splashScreen');if(!s)return;
+  const bar=document.getElementById('splashBar');if(bar)bar.style.width='100%';
+  const msg=document.getElementById('splashMsg');if(msg)msg.textContent='พร้อมใช้งาน ✓';
+  setTimeout(()=>{s.style.opacity='0';setTimeout(()=>s.remove(),500);},400);
+}
+const _origAfterBoot=afterBoot;
+let _bootDone=false;
+afterBoot=function(){
+  _bootDone=true;_origAfterBoot();
+  const elapsed=Date.now()-_splashStart;
+  const remain=Math.max(0,1400-elapsed);
+  setTimeout(hideSplash,remain);
+};
 boot();
 </script>
 <script>
