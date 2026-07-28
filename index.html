@@ -2581,7 +2581,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='2.6';
+const APP_VERSION='3.2';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -2593,14 +2593,52 @@ function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'
   else if(di<0){di=menuDays.findIndex(d=>d.dateISO>n.date);if(di>=0)meals=['breakfast','lunch','dinner'];nextDay=di>=0;}
   if(di<0||di>=menuDays.length)return null;
   return {di:di,meals:meals,nextDay:nextDay};}
-function openTodayMenu(){if(apiEnabled()){apiGetState().then(st=>{applyStateFromAPI(st);go('todayMenu');}).catch(()=>go('todayMenu'));}else go('todayMenu');}
-function renderTodayMenu(){const info=menuPublished?todayMenuInfo():null;
-  if(!info||!info.meals.some(mk=>(menuDays[info.di].meals[mk]||[]).length)){body().innerHTML=`<div style="text-align:center;padding-top:14px"><div style="font-size:56px;margin-bottom:8px">🍽️</div><h2 style="font-size:21px;margin:0 0 6px;color:var(--brand)">ยังไม่มีเมนูอาหาร</h2><p style="color:var(--muted);font-size:14.5px;line-height:1.85;margin:0 0 16px">รอติดตามเมนูอาหารเร็ว ๆ นี้จ้า 🍚</p></div><button class="btn btn-brand" onclick="go('home')">กลับหน้าแรก</button>`;return;}
-  const day=menuDays[info.di],d=thDateISO(day.dateISO);
-  const cards=MEALS.filter(m=>info.meals.includes(m[0])).map(m=>{const items=day.meals[m[0]]||[];
-    const inner=items.length?items.map((x,ix)=>`<div class="row-item">${x.img?`<div class="thumb-wrap" onclick="openImgItem(${info.di},'${m[0]}',${ix})"><img class="thumb" src="${x.img}"><span class="zoom">🔍</span></div>`:`<span style="font-size:24px">${x.emoji||'🍽️'}</span>`}<span style="flex:1;font-weight:600;font-size:15px">${x.name}</span></div>`).join(''):`<div class="note" style="padding:8px;text-align:left">— ยังไม่มีเมนู —</div>`;
+let mvDi=null,mvFixed=false;
+function openTodayMenu(){mvDi=mvDefaultDi();mvFixed=false;go('todayMenu');
+  if(apiEnabled())apiGetState().then(function(st){try{applyStateFromAPI(st);}catch(e){}if(screen==='todayMenu'){const L=mvDays().length;if(!mvFixed||mvDi===null||mvDi<0||mvDi>=L)mvDi=mvDefaultDi();render();}}).catch(function(){});}
+/* รวมทุกวันของทุกรอบ (รอบเก่า + รอบปัจจุบัน) เรียงตามวันที่ เอาเฉพาะวันที่มีเมนูจริง */
+function mvDays(){const map={};const _td=thNow().date;
+  (histRounds||[]).forEach(function(h){(h.menuDays||[]).forEach(function(d){if(d&&d.dateISO&&!map[d.dateISO])map[d.dateISO]={dateISO:d.dateISO,meals:d.meals||{},cur:false};});});
+  (menuDays||[]).forEach(function(d){if(d&&d.dateISO)map[d.dateISO]={dateISO:d.dateISO,meals:d.meals||{},cur:true};});
+  return Object.keys(map).filter(function(k){return k>=_td;}).sort().map(function(k){return map[k];})
+    .filter(function(d){return MEALS.some(function(m){return (d.meals[m[0]]||[]).length>0;});});}
+function mvOpenImg(i,mk,ix){const ds=mvDays();const it=ds[i]&&(ds[i].meals[mk]||[])[ix];if(it&&it.img)openLightbox(it.img);}
+/* วันเริ่มต้นของหน้าเมนู: วันนี้ก่อน · ถ้าไม่มีให้ใช้วันที่ใกล้จะถึงที่สุด · ถ้ารอบจบแล้วใช้วันสุดท้าย */
+function mvDefaultDi(){const ds=mvDays();if(!ds.length)return 0;const n=thNow();
+  const today=ds.findIndex(function(d){return d.dateISO===n.date;});return today>=0?today:0;}
+function mvSet(i){mvFixed=true;if(i===mvDi)return;mvDi=i;render();}
+function mvGo(step){const L=mvDays().length;if(!L)return;mvFixed=true;let n=(mvDi===null?0:mvDi)+step;if(n<0)n=0;if(n>L-1)n=L-1;if(n===mvDi)return;mvDi=n;render();}
+function renderTodayMenu(){const ds=mvDays();
+  if(!ds.length){body().innerHTML=`<div style="text-align:center;padding-top:14px"><div style="font-size:56px;margin-bottom:8px">🍽️</div><h2 style="font-size:21px;margin:0 0 6px;color:var(--brand)">ยังไม่มีเมนูอาหาร</h2><p style="color:var(--muted);font-size:14.5px;line-height:1.85;margin:0 0 16px">ยังไม่มีเมนูของวันนี้และวันถัดไป<br>รอติดตามเร็ว ๆ นี้จ้า 🍚</p></div><button class="btn btn-brand" onclick="go('home')">กลับหน้าแรก</button>`;return;}
+  if(mvDi===null||mvDi<0||mvDi>=ds.length)mvDi=mvDefaultDi();
+  const n=thNow(),day=ds[mvDi],d=thDateISO(day.dateISO);
+  const isToday=day.dateISO===n.date,isPast=day.dateISO<n.date;
+  const info=(isToday&&day.cur&&menuPublished)?todayMenuInfo():null;
+  const mealKeys=(info&&menuDays[info.di]&&menuDays[info.di].dateISO===day.dateISO)?info.meals:['breakfast','lunch','dinner'];
+  const cards=MEALS.filter(m=>mealKeys.includes(m[0])).map(m=>{const items=day.meals[m[0]]||[];
+    const inner=items.length?items.map((x,ix)=>`<div class="row-item">${x.img?`<div class="thumb-wrap" onclick="mvOpenImg(${mvDi},'${m[0]}',${ix})"><img class="thumb" src="${x.img}"><span class="zoom">🔍</span></div>`:`<span style="font-size:24px">${x.emoji||'🍽️'}</span>`}<span style="flex:1;font-weight:600;font-size:15px">${x.name}</span></div>`).join(''):`<div class="note" style="padding:8px;text-align:left">— ยังไม่มีเมนู —</div>`;
     return `<div class="card"><div class="sec-title">${m[2]} ${m[1]}</div>${inner}</div>`;}).join('');
-  body().innerHTML=`<div class="datehdr" style="margin-top:0"><div class="sub">เมนูอาหาร${info.nextDay?'วันถัดไป':'วันนี้'} · แตะรูปเพื่อดูภาพใหญ่</div><div class="big">${d.dow} ${d.short}</div></div>${cards}<button class="btn btn-ghost" onclick="go('home')">กลับหน้าแรก</button>`;}
+  const chips=ds.map(function(dd,i){const c=thDateISO(dd.dateISO);const on=i===mvDi;const isT=dd.dateISO===n.date;
+    return `<button type="button" id="mvc${i}" onclick="mvSet(${i})" style="flex:0 0 auto;border:0;cursor:pointer;font-family:inherit;padding:9px 13px;border-radius:13px;font-weight:800;font-size:13px;line-height:1.25;opacity:1;background:${on?'var(--brand)':'#fff'};color:${on?'#fff':'var(--brand)'};box-shadow:0 2px 8px rgba(6,47,110,${on?'.28':'.10'})">${c.dow}${isT?' •':''}<br><span style="font-size:11.5px;font-weight:700;opacity:.9">${c.short}</span></button>`;}).join('');
+  const nav=(dir,lbl,dis)=>`<button type="button" onclick="mvGo(${dir})" ${dis?'disabled':''} style="flex:0 0 auto;border:0;background:${dis?'#eef2f6':'#fff'};color:${dis?'#c3ccd8':'var(--brand)'};width:42px;height:42px;border-radius:13px;font-size:22px;font-weight:800;font-family:inherit;box-shadow:${dis?'none':'0 2px 8px rgba(6,47,110,.15)'};cursor:${dis?'default':'pointer'}">${lbl}</button>`;
+  const isNext=!isToday&&!isPast&&mvDi===mvDefaultDi();
+  const tag=isToday?`<span style="background:#dcfce7;color:var(--pos);font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:20px;margin-left:7px">วันนี้</span>`
+    :isNext?`<span style="background:#dcfce7;color:var(--pos);font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:20px;margin-left:7px">วันถัดไป</span>`
+    :'';
+  body().innerHTML=`<div id="mvWrap" style="touch-action:pan-y">
+  <div class="datehdr" style="margin-top:0"><div class="sub">เมนูวันนี้และวันถัดไป · แตะวันที่ หรือปัดซ้าย/ขวา 👉</div><div class="big">${d.dow} ${d.short}${tag}</div></div>
+  <div style="display:flex;align-items:stretch;gap:8px;margin:0 0 6px">${nav(-1,'‹',mvDi<=0)}<div id="mvChips" style="flex:1;display:flex;gap:7px;overflow-x:auto;padding:2px 1px;scrollbar-width:none">${chips}</div>${nav(1,'›',mvDi>=ds.length-1)}</div>
+  <div style="text-align:center;color:var(--muted);font-size:12px;margin:0 0 11px">วันที่ ${mvDi+1} จาก ${ds.length} วันที่มีเมนู</div>
+  ${cards}</div>
+  <button class="btn btn-ghost" onclick="go('home')">กลับหน้าแรก</button>`;
+  try{const c=document.getElementById('mvc'+mvDi);if(c&&c.scrollIntoView)c.scrollIntoView({block:'nearest',inline:'center'});}catch(e){}
+  const w=document.getElementById('mvWrap');if(w){let sx=0,sy=0,dn=false;
+    const st=function(x,y){sx=x;sy=y;dn=true;};
+    const en=function(x,y){if(!dn)return;dn=false;const dx=x-sx,dy=y-sy;if(Math.abs(dx)>42&&Math.abs(dx)>Math.abs(dy)*1.2)mvGo(dx<0?1:-1);};
+    w.addEventListener('touchstart',function(e){st(e.changedTouches[0].clientX,e.changedTouches[0].clientY);},{passive:true});
+    w.addEventListener('touchend',function(e){en(e.changedTouches[0].clientX,e.changedTouches[0].clientY);},{passive:true});
+    w.addEventListener('pointerdown',function(e){if(e.pointerType==='mouse')st(e.clientX,e.clientY);});
+    w.addEventListener('pointerup',function(e){if(e.pointerType==='mouse')en(e.clientX,e.clientY);});}}
 /* เมนู ☰ — QR ติดตั้งแอป + ข้อมูลแอป + ผู้พัฒนา */
 function renderAppMenu(){const isFile=location.protocol==='file:';
   body().innerHTML=`<div class="card" style="text-align:center;padding:22px 18px 18px"><img src="${LOGO_APP}" style="width:80px;height:80px;border-radius:19px;box-shadow:var(--sh)"><div style="font-weight:800;font-size:16.5px;margin-top:10px;line-height:1.4">แอปลงทะเบียนรับประทานอาหารที่โรงครัว</div><div style="color:var(--muted);font-size:13px;margin-top:4px">เวอร์ชัน ${APP_VERSION}</div></div>
@@ -2652,6 +2690,13 @@ function apiPost(action,data){if(!apiEnabled())return Promise.resolve({ok:true})
 function emptyMenuDays(){const arr=[];for(let i=0;i<rounds;i++)arr.push({dateISO:ymd(addDays(startDate,i)),meals:{breakfast:[],lunch:[],dinner:[]}});return arr;}
 /* Google Sheet อาจแปลงช่องวันที่เป็น Date object — แปลงกลับเป็น YYYY-MM-DD เสมอ */
 function isoDateStr(v){if(!v)return '';const s=String(v);if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const d=new Date(s);if(isNaN(d.getTime()))return '';const b=new Date(d.getTime()+7*3600*1000);const p=n=>String(n).padStart(2,'0');return b.getUTCFullYear()+'-'+p(b.getUTCMonth()+1)+'-'+p(b.getUTCDate());}
+/* แคชข้อมูลล่าสุดไว้ในเครื่อง เพื่อให้เปิดแอปแล้วเห็นเมนูทันที ไม่ต้องรอเน็ต */
+const LS_STATE='canteen_state_cache';
+function stripImgs(st){try{const c=JSON.parse(JSON.stringify(st));
+  const rm=function(menu){Object.keys(menu||{}).forEach(function(di){Object.keys(menu[di]||{}).forEach(function(mk){(menu[di][mk]||[]).forEach(function(it){if(it&&it.img)delete it.img;});});});};
+  rm(c.menu);(c.history||[]).forEach(function(h){rm(h.menu);});return c;}catch(e){return st;}}
+function saveStateCache(st){try{localStorage.setItem(LS_STATE,JSON.stringify(st));}catch(e){try{localStorage.setItem(LS_STATE,JSON.stringify(stripImgs(st)));}catch(e2){}}}
+function loadStateCache(){try{const s=localStorage.getItem(LS_STATE);return s?JSON.parse(s):null;}catch(e){return null;}}
 function applyStateFromAPI(st){rounds=st.rounds||rounds;startDate=isoDateStr(st.startDate)||startDate;
   regGen=(st.regGen===undefined||st.regGen===null)?regGen:(Number(st.regGen)||0);
   menuDays=emptyMenuDays();
@@ -2668,12 +2713,18 @@ function applyStateFromAPI(st){rounds=st.rounds||rounds;startDate=isoDateStr(st.
     const hr={};Object.keys(h.registrations||{}).forEach(c=>{hr[c]={};Object.keys(h.registrations[c]).forEach(di=>{hr[c][Number(di)]=h.registrations[c][di];});});
     histRounds.push({startDate:h.startDate,rounds:h.rounds,menuDays:days,registrations:hr});});
   checkins={};Object.keys(st.checkins||{}).forEach(d=>{const k=isoDateStr(d);if(k)checkins[k]=st.checkins[d];});
+  saveStateCache(st);
 }
 function afterBoot(){if(IS_CHECKIN)doCheckin();else render();}
 function boot(){
   if(apiEnabled()){
-    apiGetState().then(st=>{applyStateFromAPI(st);stateFresh=true;afterBoot();})
-      .catch(err=>{console.warn('boot fetch failed',err);toast('⚠️ เชื่อมต่อฐานข้อมูลไม่ได้ ใช้ข้อมูลตัวอย่างชั่วคราว');seedRegs();afterBoot();});
+    /* 1) มีแคชในเครื่อง → วาดจอทันทีไม่ต้องรอเน็ต  2) ค่อยดึงข้อมูลจริงมาอัปเดตทับเงียบ ๆ */
+    let shown=false;
+    if(!IS_CHECKIN){const c=loadStateCache();if(c){try{applyStateFromAPI(c);shown=true;afterBoot();}catch(e){}}}
+    apiGetState().then(st=>{applyStateFromAPI(st);stateFresh=true;
+        if(!shown)afterBoot();
+        else if(screen==='home'||screen==='todayMenu'){if(screen==='todayMenu'&&!mvFixed)mvDi=mvDefaultDi();render();}})
+      .catch(err=>{console.warn('boot fetch failed',err);if(shown){toast('⚠️ ออฟไลน์อยู่ · แสดงข้อมูลล่าสุดที่บันทึกไว้');return;}toast('⚠️ เชื่อมต่อฐานข้อมูลไม่ได้ ใช้ข้อมูลตัวอย่างชั่วคราว');seedRegs();afterBoot();});
   } else {
     seedRegs();
     seedHistory();
@@ -3068,12 +3119,41 @@ function drawBars(id,rows,fmt){fmt=fmt||(v=>v);const cv=document.getElementById(
 function drawLine(id,data){const cv=document.getElementById(id);if(!cv)return;const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);ctx.textBaseline='middle';const top=22,bot=H-38,left=46,right=W-18,max=Math.max(...data.map(d=>d.val),1)*1.2;ctx.strokeStyle='#eef2f6';ctx.fillStyle='#94a3b8';ctx.textAlign='right';ctx.font="500 12px 'IBM Plex Sans Thai'";for(let i=0;i<=4;i++){const y=top+(bot-top)*i/4;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();ctx.fillText(Math.round(max*(1-i/4)),left-8,y);}const n=data.length,xs=data.map((_,i)=>n>1?left+(right-left)*i/(n-1):(left+right)/2),ys=data.map(d=>bot-(bot-top)*(d.val/max));const g=ctx.createLinearGradient(0,top,0,bot);g.addColorStop(0,'rgba(6,47,110,.22)');g.addColorStop(1,'rgba(6,47,110,0)');ctx.beginPath();ctx.moveTo(xs[0],bot);xs.forEach((x,i)=>ctx.lineTo(x,ys[i]));ctx.lineTo(xs[n-1],bot);ctx.closePath();ctx.fillStyle=g;ctx.fill();ctx.beginPath();ctx.moveTo(xs[0],ys[0]);for(let i=1;i<n;i++)ctx.lineTo(xs[i],ys[i]);ctx.strokeStyle='#062F6E';ctx.lineWidth=3;ctx.stroke();ctx.textAlign='center';data.forEach((d,i)=>{ctx.beginPath();ctx.arc(xs[i],ys[i],5,0,7);ctx.fillStyle='#062F6E';ctx.fill();ctx.fillStyle='#0f172a';ctx.font="800 13px 'IBM Plex Sans Thai'";ctx.fillText(d.val,xs[i],ys[i]-15);ctx.fillStyle='#64748b';ctx.font="500 12px 'IBM Plex Sans Thai'";ctx.fillText(d.label,xs[i],bot+19);});}
 function rr(ctx,x,y,w,h,r){r=Math.min(r,h/2,w/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 
-function renderAdminData(){const rows=aggPerson();body().innerHTML=`<div class="hint">💡 กดปุ่มเพื่อแชร์ไฟล์ Excel (.csv) ไปยังไลน์/อีเมล/แอปอื่นได้ทันที (เครื่องที่แชร์ไม่ได้จะดาวน์โหลดให้แทน) เปิดใน Microsoft Excel ได้ รองรับภาษาไทย</div>
-  <button class="btn btn-brand" onclick="exportCSV()">📤 แชร์ไฟล์การลงทะเบียน (Excel)</button>
+function renderAdminData(){const rows=aggPerson();body().innerHTML=`<div class="hint">💡 กดปุ่มแล้วเลือกได้เลยว่าจะ <b>บันทึกลงเครื่อง 💾</b> หรือ <b>แชร์ไปไลน์/อีเมล 📤</b> · ไฟล์ .csv เปิดใน Microsoft Excel ได้ รองรับภาษาไทย</div>
+  <button class="btn btn-brand" onclick="exportCSV()">📤 ไฟล์การลงทะเบียนรอบนี้ (Excel)</button>
+  <button class="btn btn-ghost" style="margin-top:10px" onclick="exportNoReg()">🚫 รายชื่อคนไม่ลงทะเบียน (รอบที่ปิดแล้ว)</button>
   <button class="btn btn-ghost" style="margin-top:10px" onclick="exportFeedback()">💬 แชร์ข้อเสนอแนะ (${feedbackAll().length} รายการ)</button>
   <div class="card" style="margin-top:12px"><div class="sec-title">สรุปการลงทะเบียนรายคน<span class="cap">${rows.length} คน</span></div><div class="search-wrap"><span class="ic">🔍</span><input placeholder="ค้นหาชื่อ/รหัส/แผนก" oninput="filterData(this.value)"></div><div id="dbox">${personRows(rows.slice(0,20))}</div></div>`;}
 function filterData(q){q=(q||'').toLowerCase();const rows=aggPerson().filter(({e})=>e.code.includes(q)||e.name.toLowerCase().includes(q)||e.dept.toLowerCase().includes(q)||e.unit.toLowerCase().includes(q)).slice(0,30);document.getElementById('dbox').innerHTML=personRows(rows);}
-function exportCSV(){const head=['รหัสพนักงาน','ชื่อ-นามสกุล','หน่วยงาน','หน่วย','วันที่','คาบ','เมนู','สถานะ'];const lines=[head.join(',')];employees.forEach(e=>{const days=registrations[e.code]||{};menuDays.forEach((day,di)=>{const d=thDateISO(day.dateISO),r=days[di];availMealsFor(e,di).forEach(m=>{const status=!r?'ยังไม่ลงทะเบียน':(r[m[0]]?'ทาน':'ไม่ทาน');const menu=(day.meals[m[0]]||[]).map(x=>x.name).join(' / ');lines.push([e.code,e.name,e.dept,e.unit,`${d.dow} ${d.short}`,m[1],menu,status].map(c=>`"${String(c).replace(/"/g,'""')}"`).join(','));});});});downloadCSV('canteen-register.csv',lines);}
+function exportCSV(){const head=['รหัสพนักงาน','ชื่อ-นามสกุล','หน่วยงาน','หน่วย','วันที่','คาบ','เมนู','สถานะ'];const lines=[head.join(',')];employees.forEach(e=>{const days=registrations[e.code]||{};menuDays.forEach((day,di)=>{const d=thDateISO(day.dateISO),r=days[di];availMealsFor(e,di).forEach(m=>{const status=!r?'ยังไม่ลงทะเบียน':(r[m[0]]?'ทาน':'ไม่ทาน');const menu=(day.meals[m[0]]||[]).map(x=>x.name).join(' / ');lines.push([e.code,e.name,e.dept,e.unit,`${d.dow} ${d.short}`,m[1],menu,status].map(c=>`"${String(c).replace(/"/g,'""')}"`).join(','));});});});askExport('canteen-register.csv',lines,'ไฟล์การลงทะเบียน');}
+
+
+/* รายชื่อพนักงานที่ "ไม่ได้ลงทะเบียนเลย" แยกตามรอบ (รอบปัจจุบัน + รอบย้อนหลังทั้งหมด) */
+function roundLabel(ds){const days=(ds&&ds.menuDays)||[];if(!days.length)return '-';const a=thDateISO(days[0].dateISO),b=thDateISO(days[days.length-1].dateISO);return days.length>1?(a.short+' – '+b.short):a.short;}
+function noRegRows(list){const lines=[['รอบ','รหัสพนักงาน','ชื่อพนักงาน','หน่วยงาน'].join(',')];let total=0;
+  list.forEach(function(ds){const lbl=roundLabel(ds);const regs=ds.registrations||{};
+    employees.forEach(function(e){const days=regs[e.code]||{};let n=0;
+      Object.values(days).forEach(function(r){MEALS.forEach(function(m){if(m[0] in r)n++;});});
+      /* นับเป็น 1 คนต่อ 1 รอบ ไม่แยกวัน/คาบ — ไม่ลงเลยทั้งรอบเท่านั้นจึงนับ */
+      if(n===0){total++;lines.push([lbl,e.code,e.name,e.dept||e.unit||''].map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(','));}});});
+  return{lines:lines,total:total};}
+function doNoRegExport(idx){const list=(idx==='all')?histRounds.slice().reverse():[histRounds[idx]];
+  const r=noRegRows(list);
+  if(!r.total){showPopup('🎉','ไม่มีคนตกหล่น','พนักงานลงทะเบียนครบทุกคนในรอบที่เลือก');return;}
+  const tag=(idx==='all')?'all-rounds':String((list[0]&&list[0].startDate)||'').replace(/[^0-9\-]/g,'');
+  askExport('not-registered-'+(tag||'round')+'.csv',r.lines,'รายชื่อคนไม่ลงทะเบียน · '+roundLabel(list[0])+((idx==='all')?' และรอบอื่น':''));}
+function exportNoReg(){
+  if(!histRounds.length){showPopup('📁','ยังไม่มีรอบที่ปิดไปแล้ว','รายงานนี้ใช้ข้อมูลของ<b>รอบที่จบไปแล้ว</b>เท่านั้น<br>รอบปัจจุบันยังไม่ปิด จึงยังไม่มีประวัติย้อนหลัง');return;}
+  if(histRounds.length===1){doNoRegExport(0);return;}
+  const o=document.createElement('div');o.className='modal-ov';
+  const items=histRounds.map(function(h,i){return{i:i,l:roundLabel(h)};}).reverse();
+  o.innerHTML=`<div class="modal-bx"><div class="mi">📁</div><div class="mt">เลือกรอบที่จบไปแล้ว</div><div class="mm">นับ 1 คนต่อ 1 รอบ ไม่แยกวัน/คาบ</div>
+  ${items.map(function(x,k){return `<button class="btn ${k===0?'btn-brand':'btn-ghost'}" style="margin:${k===0?'0':'9px 0 0'}" data-i="${x.i}">${x.l}${k===0?' (ล่าสุด)':''}</button>`;}).join('')}
+  <button class="btn btn-ghost" style="margin:9px 0 0" data-i="all">📚 ทุกรอบที่ปิดแล้ว</button>
+  <button class="btn btn-ghost" style="margin:9px 0 0" data-i="x">ยกเลิก</button></div>`;
+  o.onclick=function(e){if(e.target===o)o.remove();};
+  document.querySelector('.screen').appendChild(o);
+  o.querySelectorAll('button[data-i]').forEach(function(btn){btn.onclick=function(){const v=btn.getAttribute('data-i');o.remove();if(v==='x')return;doNoRegExport(v==='all'?'all':Number(v));};});}
 
 const FB_Q=[{k:'taste',label:'รสชาติอาหารโดยรวม',emoji:'😋'},{k:'clean',label:'ความสะอาดของอาหาร/ภาชนะ',emoji:'✨'},{k:'portion',label:'ปริมาณอาหาร (ความอิ่ม)',emoji:'🍚'},{k:'variety',label:'ความหลากหลายของเมนู',emoji:'🍱'}];
 function ratingWord(n){return['','น้อยที่สุด','น้อย','ปานกลาง','ดี','ดีมาก'][n];}
@@ -3092,7 +3172,22 @@ function renderFbForm(){body().innerHTML=`<div class="hero" style="background:li
 function setRating(k,v){fbRatings[k]=v;render();}
 function submitFb(){for(const q of FB_Q)if(!fbRatings[q.k]){toast('กรุณาให้คะแนนให้ครบทุกข้อ');return;}saveFeedback({code:fbUser.code,name:fbUser.name,dept:fbUser.dept,unit:fbUser.unit,ratings:{...fbRatings},comment:fbComment,ts:nowStr()});fbDoneMark(fbUser.code);go('fbDone');}
 function renderFbDone(){body().innerHTML=`<div style="text-align:center"><div class="done-check" style="background:var(--amber-l);color:var(--amber)">★</div><h2 style="font-size:22px;margin:0">ขอบคุณสำหรับข้อเสนอแนะ</h2><p style="color:var(--muted);margin:6px 0 16px">ความเห็นของคุณช่วยพัฒนาโรงครัวให้ดีขึ้น</p></div><button class="btn btn-brand" onclick="go('home')">กลับหน้าแรก</button>`;}
-function exportFeedback(){const fb=feedbackAll();if(!fb.length){toast('ยังไม่มีข้อเสนอแนะ');return;}const head=['เวลา','รหัส','ชื่อ','หน่วยงาน','หน่วย','รสชาติ','ความสะอาด','ปริมาณ','ความหลากหลาย','ข้อเสนอแนะเพิ่มเติม'];const lines=[head.join(',')];fb.forEach(r=>lines.push([r.ts,r.code,r.name,r.dept,r.unit||'',r.ratings.taste,r.ratings.clean,r.ratings.portion,r.ratings.variety,r.comment||''].map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')));downloadCSV('canteen-feedback.csv',lines);}
+function exportFeedback(){const fb=feedbackAll();if(!fb.length){toast('ยังไม่มีข้อเสนอแนะ');return;}const head=['เวลา','รหัส','ชื่อ','หน่วยงาน','หน่วย','รสชาติ','ความสะอาด','ปริมาณ','ความหลากหลาย','ข้อเสนอแนะเพิ่มเติม'];const lines=[head.join(',')];fb.forEach(r=>lines.push([r.ts,r.code,r.name,r.dept,r.unit||'',r.ratings.taste,r.ratings.clean,r.ratings.portion,r.ratings.variety,r.comment||''].map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')));askExport('canteen-feedback.csv',lines,'ไฟล์ข้อเสนอแนะ');}
+function csvBlob(lines){return new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});}
+function saveCSV(name,lines){const url=URL.createObjectURL(csvBlob(lines));const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},1500);toast('บันทึกไฟล์ลงเครื่องแล้ว 💾');}
+function shareCSV(name,lines){const blob=csvBlob(lines);(async function(){try{const file=new File([blob],name,{type:'text/csv'});if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});toast('เปิดเมนูแชร์แล้ว 📤');return;}}catch(e){if(e&&e.name==='AbortError')return;}saveCSV(name,lines);})();}
+/* ให้ผู้ใช้เลือกเอง: แชร์ต่อ หรือ บันทึกลงเครื่อง */
+function askExport(name,lines,title){window.__exp={n:name,l:lines};
+  const o=document.createElement('div');o.className='modal-ov';
+  o.innerHTML=`<div class="modal-bx"><div class="mi">📊</div><div class="mt">${title||'ไฟล์ Excel พร้อมแล้ว'}</div><div class="mm">${lines.length-1} รายการ · ไฟล์ ${name}<br>เลือกวิธีนำไฟล์ออก</div>
+  <button class="btn btn-brand" style="margin:0" id="expSave">💾 บันทึกลงเครื่อง</button>
+  <button class="btn btn-ghost" style="margin:9px 0 0" id="expShare">📤 แชร์ไปไลน์ / อีเมล</button>
+  <button class="btn btn-ghost" style="margin:9px 0 0" id="expCancel">ยกเลิก</button></div>`;
+  o.onclick=function(e){if(e.target===o)o.remove();};
+  document.querySelector('.screen').appendChild(o);
+  o.querySelector('#expSave').onclick=function(){o.remove();saveCSV(name,lines);};
+  o.querySelector('#expShare').onclick=function(){o.remove();shareCSV(name,lines);};
+  o.querySelector('#expCancel').onclick=function(){o.remove();};}
 function downloadCSV(name,lines){const blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
   (async function(){try{const file=new File([blob],name,{type:'text/csv'});if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});toast('เปิดเมนูแชร์แล้ว 📤');return;}}catch(e){if(e&&e.name==='AbortError')return;}
     const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);toast('บันทึกไฟล์แล้ว (เครื่องนี้แชร์ตรงไม่ได้)');})();}
@@ -3161,14 +3256,14 @@ function hideSplash(){
   const s=document.getElementById('splashScreen');if(!s)return;
   const bar=document.getElementById('splashBar');if(bar)bar.style.width='100%';
   const msg=document.getElementById('splashMsg');if(msg)msg.textContent='พร้อมใช้งาน ✓';
-  setTimeout(()=>{s.style.opacity='0';setTimeout(()=>s.remove(),500);},400);
+  setTimeout(()=>{s.style.opacity='0';setTimeout(()=>s.remove(),240);},120);
 }
 const _origAfterBoot=afterBoot;
 let _bootDone=false;
 afterBoot=function(){
   _bootDone=true;_origAfterBoot();
   const elapsed=Date.now()-_splashStart;
-  const remain=Math.max(0,1400-elapsed);
+  const remain=Math.max(0,450-elapsed);
   setTimeout(hideSplash,remain);
 };
 boot();
