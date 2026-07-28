@@ -185,9 +185,6 @@
   .grid .totrow td{background:#dbeafe;font-weight:800;color:var(--brand);}
   .grid .rw-sub{display:block;font-size:10.5px;font-weight:700;color:#0A63B0;margin-top:2px;line-height:1.1;}
 </style>
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 </head>
 <body>
 <div id="splashScreen" style="position:fixed;inset:0;z-index:9999;background:linear-gradient(170deg,#062F6E 0%,#0A63B0 45%,#00AEEF 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .5s">
@@ -2584,7 +2581,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='2.4';
+const APP_VERSION='2.5';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -2770,15 +2767,11 @@ function regDoneMark(code){try{const m=regDoneMap();const k=regRoundKey();m[k]=m
 function regDoneClearRound(){try{const m=regDoneMap();delete m[regRoundKey()];localStorage.setItem('canteen_reg_done',JSON.stringify(m));}catch(e){}}
 /* บล็อกซ้ำ: เชื่อ "บันทึกในเครื่อง" เสมอ (บันทึกเฉพาะเมื่อ server ยืนยันแล้ว) — กันเหนียวแม้ server ตอบช้า */
 function regBlocked(code){return regComplete(code)||regDoneHas(code);}
-let _startBusy=false;
 function startUser(){
-  if(_startBusy)return;                 /* กันกดซ้ำระหว่างกำลังโหลด */
-  if(!apiEnabled()){stateFresh=true;startUserGo();return;}
-  _startBusy=true;let done=false;
-  const slow=setTimeout(()=>{if(!done)toast('กำลังโหลดข้อมูล...');},450);   /* โชว์เฉพาะตอนเน็ตช้า */
-  const finish=()=>{if(done)return;done=true;clearTimeout(slow);clearTimeout(timer);_startBusy=false;startUserGo();};
-  const timer=setTimeout(()=>{stateFresh=false;finish();},7000);  /* เน็ตค้าง 7 วิ ก็ให้เข้าต่อด้วยข้อมูลที่มี ไม่ค้างหน้าจอ */
-  apiGetState().then(function(st){try{applyStateFromAPI(st);stateFresh=true;}catch(e){stateFresh=false;}finish();},function(){stateFresh=false;finish();});
+  /* เข้าหน้าลงทะเบียนทันทีไม่ต้องรอ API — boot() โหลดข้อมูลไว้แล้ว */
+  startUserGo();
+  /* รีเฟรชข้อมูลเบื้องหลัง ไม่บล็อก UI */
+  if(apiEnabled())apiGetState().then(function(st){try{applyStateFromAPI(st);stateFresh=true;}catch(e){}}).catch(function(){});
 }
 function startUserGo(){if(!regOpen()){go('regClosed');return;}if(!userMenuReady()){noMenuPopup();return;}codeInput='';go('userCode');}
 function renderRegClosed(){body().innerHTML=`<div style="text-align:center;padding-top:10px"><div style="font-size:62px;margin-bottom:10px">⏰</div><h2 style="font-size:21px;margin:0 0 10px;color:var(--brand)">หมดเวลาลงทะเบียนรอบนี้แล้วจ้า</h2><p style="color:var(--muted);font-size:15.5px;line-height:1.85;margin:0 0 20px">รอติดตามเมนูอาหารรอบหน้า 🍚<br><span style="font-size:13px">ระบบเปิดให้ลงทะเบียนถึงเวลา 17:00 น.<br>ของวันก่อนวันเริ่มรอบ (เวลาประเทศไทย)</span></p></div><button class="btn btn-brand" onclick="go('home')">กลับหน้าแรก</button>`;}
@@ -3176,25 +3169,6 @@ afterBoot=function(){
   setTimeout(hideSplash,remain);
 };
 boot();
-</script>
-<script>
-if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('sw.js').then(reg=>{
-      reg.addEventListener('updatefound',()=>{
-        const nw=reg.installing;
-        if(nw)nw.addEventListener('statechange',()=>{
-          if(nw.state==='installed'&&navigator.serviceWorker.controller)nw.postMessage('SKIP_WAITING');
-        });
-      });
-      setInterval(()=>{reg.update().catch(()=>{});},60*60*1000);
-    }).catch(()=>{});
-    let reloaded=false;
-    navigator.serviceWorker.addEventListener('controllerchange',()=>{
-      if(reloaded)return;reloaded=true;location.reload();
-    });
-  });
-}
 </script>
 </body>
 </html>
