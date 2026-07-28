@@ -2581,7 +2581,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='2.5';
+const APP_VERSION='2.6';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -2687,7 +2687,7 @@ let screen='home',currentUser=null,regDayIdx=0,pinInput='',codeInput='',selDay=0
 let dashUnitMode='reg',dashPersonMode='reg',dashScope='current',unitQuery='',expandedStack=null,dashPersonGroup='all';
 let histRounds=[],pendingSnap=null,snapCaptured=false;
 let fbCode='',fbUser=null,fbRatings={},fbComment='',fbFallback=[];
-let menuStep='round',menuReady=false,menuPublished=false,regGen=0;
+let menuStep='round',menuReady=false,menuPublished=false,regGen=0,menuEditOverride=false;
 let npNew='',npConfirm='',npStage='new';
 const body=()=>document.getElementById('appBody');
 const hdrEl=()=>document.getElementById('hdr');
@@ -2918,16 +2918,16 @@ function downloadQRPoster(){const url=ciUrl();const W=800,H=930,cv=document.crea
   shareCanvas(cv);}
 
 function renderAdminMenu(){if(selDay>=menuDays.length)selDay=0;
- if(menuStep==='edit'&&menuPublished){body().innerHTML=`<div class="card" style="text-align:center;padding:28px 18px"><div style="font-size:52px">✅</div><h2 style="font-size:19px;margin:10px 0 6px;color:var(--pos)">ยืนยันเมนูรอบนี้แล้ว</h2><p style="color:var(--muted);font-size:14px;line-height:1.85;margin:0">เมนูแสดงให้พนักงานเรียบร้อยแล้ว<br>ไม่สามารถแก้ไขหรือเพิ่มเมนูของรอบนี้ซ้ำได้</p></div><button class="btn btn-brand" onclick="menuStep='round';render()">เริ่มจัดรอบใหม่ →</button><button class="btn btn-ghost" onclick="go('adminHub')">กลับเมนูผู้ดูแล</button>`;return;}
+ if(menuStep==='edit'&&menuPublished&&!menuEditOverride){body().innerHTML=`<div class="card" style="text-align:center;padding:28px 18px"><div style="font-size:52px">✅</div><h2 style="font-size:19px;margin:10px 0 6px;color:var(--pos)">ยืนยันเมนูรอบนี้แล้ว</h2><p style="color:var(--muted);font-size:14px;line-height:1.85;margin:0">เมนูแสดงให้พนักงานเรียบร้อยแล้ว<br>ถ้าใส่เมนูตกหล่นหรือพิมพ์ผิด กดปุ่มด้านล่างเพื่อแก้ไขได้<br><b>โดยไม่ต้องเริ่มรอบใหม่</b> (ข้อมูลการลงทะเบียนไม่หาย)</p></div><button class="btn btn-brand" onclick="menuEditOverride=true;render()">✏️ แก้ไข / เพิ่มเมนูรอบนี้</button><button class="btn btn-ghost" onclick="menuStep='round';render()">เริ่มจัดรอบใหม่ →</button><button class="btn btn-ghost" onclick="go('adminHub')">กลับเมนูผู้ดูแล</button>`;return;}
  if(menuStep==='round'){body().innerHTML=`<div class="hint">ขั้นที่ 1 — เลือก “รอบ” จำนวนวันที่จะเปิดลงทะเบียน (บังคับเลือกก่อน)</div><div class="card"><label class="fld">เลือกรอบ (จำนวนวัน)</label><div class="chips">${[2,3,4].map(n=>`<button class="${rounds===n?'active':''}" onclick="pickRound(${n})">${n} วัน</button>`).join('')}</div><div class="note" style="text-align:left;margin-top:8px">เลือกจำนวนวันก่อน จากนั้นระบบจะให้เลือก “วันแรก” แล้ววันถัด ๆ ไปจะถูกสร้างให้อัตโนมัติตามรอบ</div></div>`;return;}
  if(menuStep==='date'){body().innerHTML=`<div class="hint">ขั้นที่ 2 — เลือก “วันแรก” (รอบ ${rounds} วัน) · วันอื่นต่อให้อัตโนมัติ</div><div class="card"><label class="fld">รอบ (จำนวนวัน)</label><div class="chips">${[2,3,4].map(n=>`<button class="${rounds===n?'active':''}" onclick="pickRound(${n})">${n} วัน</button>`).join('')}</div><label class="fld">วันแรก</label><input class="txt" type="date" value="${startDate}" onchange="pickStart(this.value)"><div class="card" style="background:var(--brand-soft);border-color:var(--brand-l);margin-top:12px;margin-bottom:0"><div style="font-weight:700;font-size:13px;color:var(--brand);margin-bottom:6px">📅 วันที่จะเปิด (สร้างอัตโนมัติ)</div>${menuDays.map((d,i)=>{const t=thDateISO(d.dateISO);return `<div style="font-size:14px;padding:3px 0">วันที่ ${i+1}: <b>${t.dow} ${t.short}</b></div>`;}).join('')}</div></div><button class="btn btn-brand" onclick="confirmSetup()">ยืนยัน แล้วไปเพิ่มเมนู →</button>`;return;}
  const dayDone=i=>MEALS.every(m=>(menuDays[i].meals[m[0]]||[]).length>0);
- let unlockDay=menuDays.findIndex((_,i)=>!dayDone(i));if(unlockDay<0)unlockDay=menuDays.length-1;
+ let unlockDay=menuEditOverride?menuDays.length-1:menuDays.findIndex((_,i)=>!dayDone(i));if(unlockDay<0)unlockDay=menuDays.length-1;
  if(selDay>unlockDay)selDay=unlockDay;
- const smeals=menuDays[selDay].meals;const fe=[0,1,2].find(i=>!(smeals[MEALS[i][0]]||[]).length);const mealUnlock=(fe===undefined)?2:fe;
+ const smeals=menuDays[selDay].meals;const fe=[0,1,2].find(i=>!(smeals[MEALS[i][0]]||[]).length);const mealUnlock=menuEditOverride?2:((fe===undefined)?2:fe);
  if(MEALS.findIndex(m=>m[0]===selMeal)>mealUnlock)selMeal=MEALS[mealUnlock][0];
- body().innerHTML=`<div class="card" style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-weight:700;font-size:15px">รอบ ${rounds} วัน</div><div style="color:var(--muted);font-size:12.5px">${thDateISO(menuDays[0].dateISO).dow} ${thDateISO(menuDays[0].dateISO).short} → ${thDateISO(menuDays[menuDays.length-1].dateISO).dow} ${thDateISO(menuDays[menuDays.length-1].dateISO).short}</div></div><button class="btn-ghost" style="width:auto;padding:9px 12px;font-size:13px;border-radius:10px;box-shadow:none" onclick="menuStep='round';render()">เปลี่ยนรอบ/วัน</button></div>
-  <div class="hint">กรอกเมนูให้ครบทั้ง 3 คาบ (เช้า→เที่ยง→เย็น) ตามลำดับ · วันถัดไปจะปลดล็อก 🔒 เมื่อกรอกครบ ✓</div>
+ body().innerHTML=`<div class="card" style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-weight:700;font-size:15px">รอบ ${rounds} วัน</div><div style="color:var(--muted);font-size:12.5px">${thDateISO(menuDays[0].dateISO).dow} ${thDateISO(menuDays[0].dateISO).short} → ${thDateISO(menuDays[menuDays.length-1].dateISO).dow} ${thDateISO(menuDays[menuDays.length-1].dateISO).short}</div></div>${menuEditOverride?'':`<button class="btn-ghost" style="width:auto;padding:9px 12px;font-size:13px;border-radius:10px;box-shadow:none" onclick="menuStep='round';render()">เปลี่ยนรอบ/วัน</button>`}</div>
+  <div class="hint">${menuEditOverride?'✏️ โหมดแก้ไขเมนูที่เผยแพร่แล้ว · เลือกวัน/คาบใดก็ได้ · บันทึกให้พนักงานเห็นทันที':'กรอกเมนูให้ครบทั้ง 3 คาบ (เช้า→เที่ยง→เย็น) ตามลำดับ · วันถัดไปจะปลดล็อก 🔒 เมื่อกรอกครบ ✓'}</div>
   <div class="card"><label class="fld">เลือกวัน</label><div class="chips day">${menuDays.map((dd,i)=>{const d=thDateISO(dd.dateISO);const lock=i>unlockDay,done=dayDone(i);return `<button class="${selDay===i?'active':''}" ${lock?'disabled':''} style="flex:1;min-width:0;padding:9px 3px;font-size:12px;line-height:1.25;${lock?'opacity:.35':''}" onclick="${lock?'':`selDay=${i};render()`}">${d.dow.slice(0,2)}<br>${d.short}${done?' ✓':lock?' 🔒':''}</button>`;}).join('')}</div>
     <label class="fld">เลือกคาบ (ไล่ตามลำดับ)</label><div class="chips">${MEALS.map((m,i)=>{const filled=(smeals[m[0]]||[]).length>0,lock=i>mealUnlock;return `<button class="${selMeal===m[0]?'active':''}" ${lock?'disabled':''} style="${lock?'opacity:.35':''}" onclick="${lock?'':`selMeal='${m[0]}';render()`}">${m[2]}<br>${m[1].replace('คาบ','')}${filled?' ✓':lock?' 🔒':''}</button>`;}).join('')}</div>
     <label class="fld">ชื่อเมนู <span style="color:var(--muted);font-weight:500;font-size:12px">(กด + ถ้าคาบนี้มีมากกว่า 1 เมนู)</span></label>
@@ -2936,12 +2936,15 @@ function renderAdminMenu(){if(selDay>=menuDays.length)selDay=0;
     <input type="file" id="mImg" accept="image/*" class="hide" onchange="prevImg(event)"><img id="mPrev" class="img-preview hide">
     <button class="btn btn-brand" style="margin-top:14px" onclick="addMenu()">ยืนยันเพิ่มเมนู</button></div>
   <div class="card"><div class="sec-title">เมนูที่บันทึกไว้</div><div id="mList"></div></div>
-  <button class="btn btn-brand" onclick="publishMenu()">✅ ยืนยันเมนูของรอบนี้ (เผยแพร่ให้พนักงาน)</button>
-  <div class="note">พนักงานจะเห็นเมนูและลงทะเบียนได้ <b>หลังกดยืนยัน</b> เท่านั้น · ยืนยันแล้วแก้ไขไม่ได้จนกว่าจะเริ่มรอบใหม่</div>`;renderMList();}
+  ${menuEditOverride
+    ?`<button class="btn btn-brand" onclick="menuEditOverride=false;toast('บันทึกการแก้ไขเมนูแล้ว ✓');go('adminHub')">✓ เสร็จสิ้น กลับเมนูผู้ดูแล</button>
+      <div class="note">ทุกเมนูที่เพิ่ม/แก้ไข/ลบ ถูกบันทึกลงฐานข้อมูลทันที · พนักงานเห็นผลทันทีโดยไม่ต้องยืนยันซ้ำ</div>`
+    :`<button class="btn btn-brand" onclick="publishMenu()">✅ ยืนยันเมนูของรอบนี้ (เผยแพร่ให้พนักงาน)</button>
+      <div class="note">พนักงานจะเห็นเมนูและลงทะเบียนได้ <b>หลังกดยืนยัน</b> เท่านั้น · ยืนยันแล้วยังกลับมาแก้ไขทีหลังได้</div>`}`;renderMList();}
 function publishMenu(){
   if(!menuHasFood()){toast('ยังไม่มีเมนู กรุณาเพิ่มเมนูก่อน');return;}
   const o=document.createElement('div');o.className='modal-ov';
-  o.innerHTML=`<div class="modal-bx"><div class="mi">✅</div><div class="mt">ยืนยันเมนูของรอบนี้?</div><div class="mm">เมื่อยืนยันแล้ว เมนูจะแสดงให้พนักงานทันที<br>และจะ<b>แก้ไข/เพิ่มเมนูรอบนี้ไม่ได้อีก</b></div><div style="display:flex;gap:10px"><button class="btn btn-ghost" style="margin:0;flex:1">ยกเลิก</button><button class="btn btn-brand" style="margin:0;flex:1">ยืนยัน</button></div></div>`;
+  o.innerHTML=`<div class="modal-bx"><div class="mi">✅</div><div class="mt">ยืนยันเมนูของรอบนี้?</div><div class="mm">เมื่อยืนยันแล้ว เมนูจะแสดงให้พนักงานทันที<br>ถ้าใส่ตกหล่นภายหลัง ยังกดแก้ไขเพิ่มได้</div><div style="display:flex;gap:10px"><button class="btn btn-ghost" style="margin:0;flex:1">ยกเลิก</button><button class="btn btn-brand" style="margin:0;flex:1">ยืนยัน</button></div></div>`;
   const btns=o.querySelectorAll('button');btns[0].onclick=()=>o.remove();
   btns[1].onclick=()=>{o.remove();menuPublished=true;menuStep='round';render();
     apiPost('saveConfig',{menuPub:1}).then(res=>{
@@ -2954,7 +2957,7 @@ function confirmSetup(){rebuildDays();
   if(pendingSnap){histRounds.push(pendingSnap);pendingSnap=null;}
   snapCaptured=false;
   menuDays=emptyMenuDays();registrations={};
-  menuPublished=false;if(apiEnabled())apiPost('newRound',{rounds:rounds,startDate:startDate,menuPub:0});
+  menuPublished=false;menuEditOverride=false;if(apiEnabled())apiPost('newRound',{rounds:rounds,startDate:startDate,menuPub:0});
   menuReady=true;menuStep='edit';selDay=0;selMeal='breakfast';render();}
 let pendingImg=null;
 let mNames=[''];
