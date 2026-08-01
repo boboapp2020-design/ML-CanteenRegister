@@ -2560,6 +2560,8 @@ let menuDays=[
  { dateISO:ymd(addDays(startDate,1)), meals:{ breakfast:[{name:'โจ๊กหมู',emoji:'🥣'}], lunch:[{name:'ข้าวหมูทอดกระเทียม',emoji:'🍗'},{name:'ผัดซีอิ๊วหมู',emoji:'🍜'}], dinner:[{name:'แกงเขียวหวานไก่',emoji:'🍲'}] } },
  { dateISO:ymd(addDays(startDate,2)), meals:{ breakfast:[{name:'ข้าวไข่เจียว',emoji:'🍳'}], lunch:[{name:'ข้าวคลุกกะปิ',emoji:'🍚'},{name:'ราดหน้าหมู',emoji:'🍜'}], dinner:[{name:'ต้มจืดเต้าหู้หมูสับ',emoji:'🍲'}] } },
 ];
+/* เมนูที่อยู่นอกช่วงรอบปัจจุบัน (Admin ใส่ล่วงหน้าเกินจำนวนวันของรอบ) — เก็บไว้โชว์ในหน้าเมนูอย่างเดียว */
+let menuExtra=[];
 function availMeals(di){return MEALS.filter(m=>(menuDays[di].meals[m[0]]||[]).length>0);}
 
 let registrations={};
@@ -2585,7 +2587,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='3.4';
+const APP_VERSION='3.6';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -2603,6 +2605,7 @@ function openTodayMenu(){mvDi=mvDefaultDi();mvFixed=false;go('todayMenu');
 /* รวมทุกวันของทุกรอบ (รอบเก่า + รอบปัจจุบัน) เรียงตามวันที่ เอาเฉพาะวันที่มีเมนูจริง */
 function mvDays(){const map={};const _td=thNow().date;
   (histRounds||[]).forEach(function(h){(h.menuDays||[]).forEach(function(d){if(d&&d.dateISO&&!map[d.dateISO])map[d.dateISO]={dateISO:d.dateISO,meals:d.meals||{},cur:false};});});
+  (menuExtra||[]).forEach(function(d){if(d&&d.dateISO&&!map[d.dateISO])map[d.dateISO]={dateISO:d.dateISO,meals:d.meals||{},cur:true};});
   (menuDays||[]).forEach(function(d){if(d&&d.dateISO)map[d.dateISO]={dateISO:d.dateISO,meals:d.meals||{},cur:true};});
   return Object.keys(map).filter(function(k){return k>=_td;}).sort().map(function(k){return map[k];})
     .filter(function(d){return MEALS.some(function(m){return (d.meals[m[0]]||[]).length>0;});});}
@@ -2688,9 +2691,18 @@ function allDatasets(scope){const arr=[{menuDays:menuDays,registrations:registra
 const API_URL = 'https://script.google.com/macros/s/AKfycbzFXgTliQIklmbnypdoAQTJ4q_NTRqjhAQKZvK6fwqbzOChR3a_POURzGhPRqxlBK9T/exec';
 function apiEnabled(){return !!API_URL;}
 function apiGetState(){return fetch(API_URL+'?action=state',{cache:'no-store'}).then(r=>r.json());}
-function apiPost(action,data){if(!apiEnabled())return Promise.resolve({ok:true});
+function apiPostRaw(action,data){if(!apiEnabled())return Promise.resolve({ok:true});
   return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({action:action},data))})
     .then(r=>r.json()).catch(err=>{console.warn('sync failed',err);toast('⚠️ ซิงก์ข้อมูลไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต');return{ok:false,error:String(err)};});}
+/* ส่งคำสั่งเขียนทีละคำสั่งเรียงตามลำดับเสมอ
+   กันเคส "เริ่มรอบใหม่" (ซึ่งล้างตารางเมนูฝั่งเซิร์ฟเวอร์) วิ่งไปลบเมนูวันแรกที่แอดมินเพิ่งพิมพ์เข้าไปทับ */
+let apiChain=Promise.resolve();
+function apiPost(action,data){
+  const run=function(){return apiPostRaw(action,data);};
+  const p=apiChain.then(run,run);
+  /* ถ้าคำสั่งไหนค้างนานผิดปกติ ปล่อยคิวเดินต่อ จะได้ไม่ล็อกทั้งแอป */
+  apiChain=Promise.race([p.catch(function(){}),new Promise(function(r){setTimeout(r,20000);})]);
+  return p;}
 function emptyMenuDays(){const arr=[];for(let i=0;i<rounds;i++)arr.push({dateISO:ymd(addDays(startDate,i)),meals:{breakfast:[],lunch:[],dinner:[]}});return arr;}
 /* Google Sheet อาจแปลงช่องวันที่เป็น Date object — แปลงกลับเป็น YYYY-MM-DD เสมอ */
 function isoDateStr(v){if(!v)return '';const s=String(v);if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const d=new Date(s);if(isNaN(d.getTime()))return '';const b=new Date(d.getTime()+7*3600*1000);const p=n=>String(n).padStart(2,'0');return b.getUTCFullYear()+'-'+p(b.getUTCMonth()+1)+'-'+p(b.getUTCDate());}
@@ -2703,9 +2715,14 @@ function saveStateCache(st){try{localStorage.setItem(LS_STATE,JSON.stringify(st)
 function loadStateCache(){try{const s=localStorage.getItem(LS_STATE);return s?JSON.parse(s):null;}catch(e){return null;}}
 function applyStateFromAPI(st){rounds=st.rounds||rounds;startDate=isoDateStr(st.startDate)||startDate;
   regGen=(st.regGen===undefined||st.regGen===null)?regGen:(Number(st.regGen)||0);
-  menuDays=emptyMenuDays();
+  menuDays=emptyMenuDays();menuExtra=[];
   const menu=st.menu||{};
-  Object.keys(menu).forEach(di=>{const d=Number(di);if(!menuDays[d])return;Object.keys(menu[di]).forEach(mk=>{menuDays[d].meals[mk]=menu[di][mk]||[];});});
+  /* dayIndex ที่เกินจำนวนวันของรอบ ไม่ทิ้ง — เก็บใส่ menuExtra ไว้โชว์ในหน้าเมนู (คำนวณวันที่จาก startDate + dayIndex) */
+  const _xtra={};
+  const _pushX=function(base,d,mk,items){const k=ymd(addDays(base,d));if(!_xtra[k])_xtra[k]={dateISO:k,meals:{breakfast:[],lunch:[],dinner:[]}};_xtra[k].meals[mk]=items||[];};
+  Object.keys(menu).forEach(di=>{const d=Number(di);
+    if(!menuDays[d]){if(isFinite(d)&&d>=0&&d<400)Object.keys(menu[di]).forEach(mk=>{_pushX(startDate,d,mk,menu[di][mk]);});return;}
+    Object.keys(menu[di]).forEach(mk=>{menuDays[d].meals[mk]=menu[di][mk]||[];});});
   menuReady=Object.keys(menu).length>0;
   menuPublished=(st.menuPub===undefined||st.menuPub===null||st.menuPub==='')?true:!!Number(st.menuPub);
   registrations={};
@@ -2713,10 +2730,13 @@ function applyStateFromAPI(st){rounds=st.rounds||rounds;startDate=isoDateStr(st.
   Object.keys(regs).forEach(code=>{registrations[code]={};Object.keys(regs[code]).forEach(di=>{registrations[code][Number(di)]=regs[code][di];});});
   histRounds=[];
   (st.history||[]).forEach(h0=>{const h=Object.assign({},h0,{startDate:isoDateStr(h0.startDate)||h0.startDate});if(!isoDateStr(h.startDate))return;const days=[];for(let i=0;i<(h.rounds||0);i++)days.push({dateISO:ymd(addDays(h.startDate,i)),meals:{breakfast:[],lunch:[],dinner:[]}});
-    Object.keys(h.menu||{}).forEach(di=>{const d=Number(di);if(!days[d])return;Object.keys(h.menu[di]).forEach(mk=>{days[d].meals[mk]=h.menu[di][mk]||[];});});
+    Object.keys(h.menu||{}).forEach(di=>{const d=Number(di);
+      if(!days[d]){if(isFinite(d)&&d>=0&&d<400)Object.keys(h.menu[di]).forEach(mk=>{_pushX(h.startDate,d,mk,h.menu[di][mk]);});return;}
+      Object.keys(h.menu[di]).forEach(mk=>{days[d].meals[mk]=h.menu[di][mk]||[];});});
     const hr={};Object.keys(h.registrations||{}).forEach(c=>{hr[c]={};Object.keys(h.registrations[c]).forEach(di=>{hr[c][Number(di)]=h.registrations[c][di];});});
     histRounds.push({startDate:h.startDate,rounds:h.rounds,menuDays:days,registrations:hr});});
   checkins={};Object.keys(st.checkins||{}).forEach(d=>{const k=isoDateStr(d);if(k)checkins[k]=st.checkins[d];});
+  menuExtra=Object.keys(_xtra).sort().map(function(k){return _xtra[k];});
   saveStateCache(st);
 }
 function afterBoot(){if(IS_CHECKIN)doCheckin();else render();}
@@ -3011,8 +3031,10 @@ function pickStart(v){if(v){startDate=v;rebuildDays();render();}}
 function confirmSetup(){rebuildDays();
   if(pendingSnap){histRounds.push(pendingSnap);pendingSnap=null;}
   snapCaptured=false;
-  menuDays=emptyMenuDays();registrations={};
-  menuPublished=false;menuEditOverride=false;if(apiEnabled())apiPost('newRound',{rounds:rounds,startDate:startDate,menuPub:0});
+  menuDays=emptyMenuDays();menuExtra=[];registrations={};
+  menuPublished=false;menuEditOverride=false;
+  if(apiEnabled())apiPost('newRound',{rounds:rounds,startDate:startDate,menuPub:0}).then(function(res){
+    if(!res||res.ok===false)showPopup('⚠️','เริ่มรอบใหม่ไม่สำเร็จ','เชื่อมต่อฐานข้อมูลไม่ได้ กรุณาตรวจอินเทอร์เน็ต<br>แล้วตั้งรอบใหม่อีกครั้ง ก่อนเริ่มใส่เมนู');});
   menuReady=true;menuStep='edit';selDay=0;selMeal='breakfast';render();}
 let pendingImg=null;
 let mNames=[''];
