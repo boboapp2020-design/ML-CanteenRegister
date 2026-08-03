@@ -2545,8 +2545,14 @@ function addDays(iso,n){const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+
 function thDateISO(iso){const d=new Date(iso+'T00:00:00');return{dow:THDOW[d.getDay()],short:d.getDate()+' '+THMON[d.getMonth()],ymd:(d.getFullYear()+543)};}
 let rounds=3, startDate=ymd(addDays(ymd(new Date()),1));
 /* ปิดลงทะเบียน 23:59 น. (เวลาไทย) ของวันก่อนวันเริ่มรอบ */
-/* ปิดลงทะเบียน 17:00 น. (เวลาไทย) ของวันก่อนวันเริ่มรอบ */
-function regOpen(){const cutoff=new Date(startDate+'T00:00:00+07:00').getTime()-7*3600*1000;return Date.now()<cutoff;}
+/* ปิดลงทะเบียน 17:00 น. (เวลาไทย) ของวันก่อนวันเริ่มรอบ
+   ยกเว้นครั้งเดียว: รอบพิเศษ ปิดรับ พุธ 5 ส.ค. 2026 เวลา 18:00 น.
+   ใช้ค่าที่ช้ากว่าเสมอ จึงหมดอายุตัวเองอัตโนมัติ — รอบที่เริ่มตั้งแต่ 7 ส.ค. เป็นต้นไป กลับมา 17:00 เหมือนเดิม */
+const REG_DL_ONCE=new Date('2026-08-05T18:00:00+07:00').getTime();
+function regCutoff(){const base=new Date(startDate+'T00:00:00+07:00').getTime()-7*3600*1000;return Math.max(base,REG_DL_ONCE);}
+function regOpen(){return Date.now()<regCutoff();}
+function thStampTH(ms){const d=new Date(ms+7*3600*1000);const p=n=>String(n).padStart(2,'0');return{dow:THDOW[d.getUTCDay()],short:d.getUTCDate()+' '+THMON[d.getUTCMonth()],time:p(d.getUTCHours())+':'+p(d.getUTCMinutes())};}
+function regDlText(){const c=thStampTH(regCutoff());return c.dow+' '+c.short+' เวลา '+c.time+' น.';}
 function periodLabel(){const a=thDateISO(menuDays[0].dateISO),b=thDateISO(menuDays[menuDays.length-1].dateISO);return `งวด ${a.short} – ${b.short} ${b.ymd}`;}
 function rebuildDays(){const old=menuDays||[];const arr=[];for(let i=0;i<rounds;i++){arr.push({dateISO:ymd(addDays(startDate,i)),meals:(old[i]&&old[i].meals)?old[i].meals:{breakfast:[],lunch:[],dinner:[]}});}menuDays=arr;}
 
@@ -2587,7 +2593,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='3.9';
+const APP_VERSION='4.0';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -2811,7 +2817,7 @@ function setTop(){const titles={empSearch:'ค้นหาพนักงาน'
   if(screen==='home'){hdrEl().className='hdr';hdrEl().innerHTML=`<div class="bm"><img src="${LOGO_CO}"></div><div><div class="bt">โรงครัวมิตรลาว</div><div class="bs">ลงทะเบียนรับประทานอาหาร</div></div><button class="nav" style="margin-left:auto;font-size:21px" onclick="go('appMenu')">☰</button>`;return;}
   hdrEl().className='hdr hdr-bottom';hdrEl().innerHTML=`<button class="nav" onclick="go('home')">⌂</button><span class="title" style="margin:0 auto">${titles[screen]||''}</span><button class="nav" onclick="smartBack()">‹</button>`;}
 
-function renderHome(){const dl=thDateISO(ymd(addDays(startDate,-1)));const dlTxt=regOpen()?`⏰ เปิดลงทะเบียนถึง ${dl.dow} ${dl.short} เวลา 17:00 น.`:`⏰ ปิดรับลงทะเบียนรอบนี้แล้ว`;body().innerHTML=`
+function renderHome(){const dlTxt=regOpen()?`⏰ เปิดลงทะเบียนถึง ${regDlText()}`:`⏰ ปิดรับลงทะเบียนรอบนี้แล้ว`;body().innerHTML=`
   <div style="text-align:center;margin-bottom:20px">
     <img src="${LOGO_APP}" alt="app" onclick="openTodayMenu()" style="width:116px;height:116px;border-radius:27px;box-shadow:0 12px 28px rgba(6,47,110,.28);display:block;margin:0 auto 6px;cursor:pointer">
     <div onclick="openTodayMenu()" style="color:var(--info);font-size:12px;font-weight:700;margin-bottom:8px;cursor:pointer">แตะโลโก้เพื่อดูเมนูวันนี้ 🍽️</div>
@@ -2849,7 +2855,7 @@ function startUser(){
   if(apiEnabled())apiGetState().then(function(st){try{applyStateFromAPI(st);stateFresh=true;}catch(e){}}).catch(function(){});
 }
 function startUserGo(){if(!regOpen()){go('regClosed');return;}if(!userMenuReady()){noMenuPopup();return;}codeInput='';go('userCode');}
-function renderRegClosed(){body().innerHTML=`<div style="text-align:center;padding-top:10px"><div style="font-size:62px;margin-bottom:10px">⏰</div><h2 style="font-size:21px;margin:0 0 10px;color:var(--brand)">หมดเวลาลงทะเบียนรอบนี้แล้วจ้า</h2><p style="color:var(--muted);font-size:15.5px;line-height:1.85;margin:0 0 20px">รอติดตามเมนูอาหารรอบหน้า 🍚<br><span style="font-size:13px">ระบบเปิดให้ลงทะเบียนถึงเวลา 17:00 น.<br>ของวันก่อนวันเริ่มรอบ (เวลาประเทศไทย)</span></p></div><button class="btn btn-brand" onclick="go('home')">กลับหน้าแรก</button>`;}
+function renderRegClosed(){body().innerHTML=`<div style="text-align:center;padding-top:10px"><div style="font-size:62px;margin-bottom:10px">⏰</div><h2 style="font-size:21px;margin:0 0 10px;color:var(--brand)">หมดเวลาลงทะเบียนรอบนี้แล้วจ้า</h2><p style="color:var(--muted);font-size:15.5px;line-height:1.85;margin:0 0 20px">รอติดตามเมนูอาหารรอบหน้า 🍚<br><span style="font-size:13px">ระบบเปิดให้ลงทะเบียนถึง<br>${regDlText()} (เวลาประเทศไทย)</span></p></div><button class="btn btn-brand" onclick="go('home')">กลับหน้าแรก</button>`;}
 function renderUserCode(){body().innerHTML=`<div class="card" style="text-align:center;padding-top:18px"><div style="width:62px;height:62px;border-radius:17px;background:var(--brand-soft);display:grid;place-items:center;font-size:30px;margin:0 auto 6px">👤</div><div style="font-weight:700;font-size:18px">ใส่รหัสพนักงานของคุณ</div><div class="code-display" id="codeDisp">${codeInput||'—'}</div></div>
   <div class="keypad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button onclick="keyCode('${n}')">${n}</button>`).join('')}<button class="act" onclick="keyCode('del')">⌫</button><button onclick="keyCode('0')">0</button><button class="act" onclick="keyCode('ok')">✓</button></div>
   <button class="btn btn-ghost" style="margin-top:12px" onclick="go('empSearch')">🔍 จำรหัสไม่ได้? ค้นหาชื่อ</button>`;}
@@ -3263,7 +3269,7 @@ function renderUserHelp(){body().innerHTML=`<div class="card"><div class="sec-ti
   <li>ใส่ <b>รหัสพนักงาน</b> แล้วกด <b>✓</b><br><span style="color:var(--muted);font-size:13px">(จำรหัสไม่ได้ กด “ค้นหาชื่อ” ได้)</span></li>
   <li><b>สิทธิ์การใช้งาน</b> ระบบรู้จากรหัสอัตโนมัติ<br>• พนักงาน<b>ระดับ 4 ขึ้นไป</b> — ได้ <b>3 คาบ</b> (เช้า · เที่ยง · เย็น)<br>• พนักงาน<b>รายวัน - ระดับ 3</b> — ได้สิทธิ์<b>คาบเที่ยง</b><br><span style="color:var(--muted);font-size:13px">หน้าจอจะแสดงเฉพาะคาบที่มีสิทธิ์</span></li>
   <li>กดเลือก <span style="color:var(--pos);font-weight:800">ทาน</span> หรือ <span style="color:var(--neg);font-weight:800">ไม่ทาน</span> ให้ครบทุกคาบ แล้วกด <b>“ยืนยัน”</b> ทำจนครบทุกวัน จะขึ้น <b>“ลงทะเบียนสำเร็จ”</b></li>
-  <li>ลงทะเบียนได้ <b>1 ครั้งต่อรอบ</b> · ปิดรับเวลา <b>17:00 น.</b> ของวันก่อนเริ่มรอบ</li>
+  <li>ลงทะเบียนได้ <b>1 ครั้งต่อรอบ</b> · รอบนี้ปิดรับ <b>${regDlText()}</b></li>
   <li>เมื่อมาทานจริง <b>สแกน QR หน้าโรงอาหาร</b>ทุกครั้ง เพื่อยืนยันการใช้สิทธิ์</li>
 </ol></div>
 <div class="card"><div class="sec-title">💡 เกร็ดเพิ่มเติม</div><div style="font-size:14px;line-height:1.9">• แตะ<b>รูปอาหาร</b>เพื่อดูภาพใหญ่ · กด <b>“‹ กลับไปแก้ไข”</b> เพื่อย้อนแก้วันก่อนหน้า<br>• อยากให้คะแนน/แนะนำอาหาร กด <b>“ข้อเสนอแนะ”</b> ที่หน้าแรก (1 ครั้งต่อรอบ)</div></div>
