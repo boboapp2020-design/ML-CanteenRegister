@@ -288,7 +288,7 @@ function saveConfig(data) {
 // แล้วล้างตารางรอบปัจจุบัน และตั้งค่ารอบใหม่
 function newRound(data) {
   const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  lock.waitLock(30000);
   try {
     // อ่านค่ารอบเดิมจาก Config ก่อน เพื่อใช้เป็น roundId ของประวัติ
     var cfgVals = sheet(SHEET_CONFIG).getDataRange().getValues();
@@ -299,23 +299,31 @@ function newRound(data) {
     }
     var roundId = oldStart + '|' + oldRounds;
 
+    // [แก้บั๊ก ส.ค. 2026] เดิม archive ด้วย appendRow ทีละแถว — พนักงานหลายร้อยคน
+    // ทำให้ newRound ถือ LockService ค้างหลายสิบวินาที คำสั่ง saveMenuDay วันแรก
+    // ที่แอดมินพิมพ์ทันทีหลังตั้งรอบเลยรอ lock ไม่ทัน (timeout) → เมนูวันแรกหาย
+    // แก้เป็น: รวบทุกแถวเป็น array เดียวแล้วเขียนครั้งเดียวด้วย setValues() → เร็วขึ้นมาก
     var menuSh = sheet(SHEET_MENU);
     var menuVals = menuSh.getDataRange().getValues();
     if (oldStart && menuVals.length > 1) {
       var hMenu = getOrCreateSheet(SHEET_HMENU, ['roundId', 'dayIndex', 'dateISO', 'mealKey', 'itemsJson']);
+      var mOut = [];
       for (var m = 1; m < menuVals.length; m++) {
         if (menuVals[m][0] === '' || menuVals[m][0] === null) continue;
-        hMenu.appendRow([roundId, menuVals[m][0], menuVals[m][1], menuVals[m][2], menuVals[m][3]]);
+        mOut.push([roundId, menuVals[m][0], menuVals[m][1], menuVals[m][2], menuVals[m][3]]);
       }
+      if (mOut.length) hMenu.getRange(hMenu.getLastRow() + 1, 1, mOut.length, 5).setValues(mOut);
     }
     var regSh = sheet(SHEET_REG);
     var regVals = regSh.getDataRange().getValues();
     if (oldStart && regVals.length > 1) {
       var hReg = getOrCreateSheet(SHEET_HREG, ['roundId', 'code', 'dayIndex', 'breakfast', 'lunch', 'dinner', 'updatedAt']);
+      var rOut = [];
       for (var r = 1; r < regVals.length; r++) {
         if (regVals[r][0] === '' || regVals[r][0] === null) continue;
-        hReg.appendRow([roundId, regVals[r][0], regVals[r][1], regVals[r][2], regVals[r][3], regVals[r][4], regVals[r][5]]);
+        rOut.push([roundId, regVals[r][0], regVals[r][1], regVals[r][2], regVals[r][3], regVals[r][4], regVals[r][5]]);
       }
+      if (rOut.length) hReg.getRange(hReg.getLastRow() + 1, 1, rOut.length, 7).setValues(rOut);
     }
 
     clearDataRows(menuSh);
