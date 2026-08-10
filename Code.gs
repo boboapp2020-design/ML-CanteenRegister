@@ -273,13 +273,16 @@ function saveConfig(data) {
   try {
     const cfgSh = sheet(SHEET_CONFIG);
     const vals = cfgSh.getDataRange().getValues();
-    let foundPub = false;
+    let foundPub = false, foundDl = false;
     for (let i = 1; i < vals.length; i++) {
       if (vals[i][0] === 'rounds' && data.rounds !== undefined) cfgSh.getRange(i + 1, 2).setValue(data.rounds);
       if (vals[i][0] === 'startDate' && data.startDate !== undefined) cfgSh.getRange(i + 1, 2).setValue(data.startDate);
       if (vals[i][0] === 'menuPub') { foundPub = true; if (data.menuPub !== undefined) cfgSh.getRange(i + 1, 2).setValue(data.menuPub); }
+      // regDeadline = เวลาปิดรับลงทะเบียนจริง (ISO) ที่แอปคำนวณให้ — ใช้ตอนส่งแจ้งเตือนอัตโนมัติ
+      if (vals[i][0] === 'regDeadline') { foundDl = true; if (data.regDeadline !== undefined) cfgSh.getRange(i + 1, 2).setValue(data.regDeadline); }
     }
     if (!foundPub && data.menuPub !== undefined) cfgSh.appendRow(['menuPub', data.menuPub, 'สถานะยืนยันเมนูของรอบ (1=ยืนยันแล้ว)']);
+    if (!foundDl && data.regDeadline !== undefined) cfgSh.appendRow(['regDeadline', data.regDeadline, 'เวลาปิดรับลงทะเบียนจริงของรอบ (ISO) สำหรับแจ้งเตือนอัตโนมัติ']);
     return { ok: true };
   } finally {
     lock.releaseLock();
@@ -525,38 +528,55 @@ function testPush() {
   return r;
 }
 
-// ---------- แจ้งเตือน "ใกล้หมดเวลาลงทะเบียน" อัตโนมัติ ----------
-// เดดไลน์ปกติ = 17:00 ของวันก่อนวันเริ่มรอบ (ตรงกับกติกาในแอป)
-// ทำงานด้วย time trigger (ทุก 30 นาที) เรียก remindDeadline() — ส่ง push ครั้งเดียวต่อรอบ
-// เมื่อเหลือเวลา <= REMIND_HOURS_BEFORE ชม. (และเมนูเผยแพร่แล้วเท่านั้น)
-var REMIND_HOURS_BEFORE = 3;
+// ---------- แจ้งเตือน "รีบลงทะเบียน" อัตโนมัติ จนถึงปิดรับ ----------
+// ส่งซ้ำทุกวัน 2 เวลา (เช้า 07:00 และบ่าย 16:45) + เตือนด่วนก่อนปิด 1 ชม. แล้วหยุดเมื่อปิดรับ
+// เวลาปิดรับ: ใช้ค่า regDeadline (ISO) จาก Config ถ้ามี (รองรับกรณีขยายเวลาพิเศษ)
+//   ถ้าไม่มี ใช้กติกามาตรฐาน = 17:00 ของวันก่อนวันเริ่มรอบ
+// ทำงานด้วย time trigger ทุก 15 นาที · แต่ละช่วง (เช้า/บ่ายของแต่ละวัน และก่อนปิด) ส่งครั้งเดียว
+var REMIND_MORNING = '07:00';     // "ก่อน 8 โมง"
+var REMIND_AFTERNOON = '16:45';
 function _cfgMap_() {
   var vals = sheet(SHEET_CONFIG).getDataRange().getValues();
   var m = {};
   for (var i = 1; i < vals.length; i++) m[vals[i][0]] = vals[i][1];
   return m;
 }
+function _effectiveDeadline_(cfg) {
+  if (cfg.regDeadline) { var d = new Date(cfg.regDeadline); if (!isNaN(d.getTime())) return d; }
+  var startDate = isoD(cfg.startDate); if (!startDate) return null;
+  return new Date(new Date(startDate + 'T00:00:00+07:00').getTime() - 7 * 3600 * 1000);
+}
 function remindDeadline() {
   var cfg = _cfgMap_();
   var startDate = isoD(cfg.startDate);
   var rounds = Number(cfg.rounds) || 0;
   var menuPub = Number(cfg.menuPub) || 0;
-  if (!startDate || !menuPub) return;                       // ไม่มีรอบ/ยังไม่เผยแพร่เมนู = ไม่เตือน
-  var deadline = new Date(new Date(startDate + 'T00:00:00+07:00').getTime() - 7 * 3600 * 1000);
+  if (!startDate || !menuPub) return;                    // ไม่มีรอบ/ยังไม่เผยแพร่เมนู = ไม่เตือน
+  var deadline = _effectiveDeadline_(cfg); if (!deadline) return;
   var hoursUntil = (deadline.getTime() - Date.now()) / 3600000;
-  if (hoursUntil <= 0 || hoursUntil > REMIND_HOURS_BEFORE) return;   // ยังไม่ถึงช่วงเตือน หรือเลยเดดไลน์แล้ว
+  if (hoursUntil <= 0) return;                           // ปิดรับแล้ว หยุดเตือน
   var roundId = startDate + '|' + rounds;
   var props = PropertiesService.getScriptProperties();
-  if (props.getProperty('dl_sent_' + roundId) === '1') return;       // รอบนี้เตือนไปแล้ว
-  var when = Utilities.formatDate(deadline, 'Asia/Bangkok', 'dd/MM HH:mm');
-  var r = osPush_('⏰ ใกล้หมดเวลาลงทะเบียน!', 'ปิดรับลงทะเบียนวันที่ ' + when + ' น. รีบลงทะเบียนก่อนหมดเวลา', APP_HOME_URL);
-  if (r && r.ok) props.setProperty('dl_sent_' + roundId, '1');
-  return r;
+  var today = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd');
+  var hm = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'HH:mm');
+  var dlText = Utilities.formatDate(deadline, 'Asia/Bangkok', 'dd/MM HH:mm');
+  function fire(slotKey, heading, content) {
+    var k = 'rem_' + roundId + '_' + slotKey;
+    if (props.getProperty(k) === '1') return;
+    var r = osPush_(heading, content, APP_HOME_URL);
+    if (r && r.ok) props.setProperty(k, '1');
+  }
+  // 1) ก่อนปิด 1 ชม. — เตือนด่วนครั้งสุดท้าย (สำคัญสุด ตรวจก่อน)
+  if (hoursUntil <= 1) { fire('final', '⏰ ใกล้ปิดรับลงทะเบียน!', 'เหลือไม่ถึง 1 ชม. (ปิด ' + dlText + ' น.) รีบลงทะเบียนด่วน!'); return; }
+  // 2) รอบเช้า 07:00 (หน้าต่าง 07:00–07:59) วันละครั้ง
+  if (hm >= REMIND_MORNING && hm < '08:00') { fire('m_' + today, '🍽️ อย่าลืมลงทะเบียนอาหาร', 'ยังเปิดรับลงทะเบียนอยู่ (ปิด ' + dlText + ' น.) รีบลงทะเบียนก่อนหมดเวลา'); return; }
+  // 3) รอบบ่าย 16:45 (หน้าต่าง 16:45–16:59) วันละครั้ง
+  if (hm >= REMIND_AFTERNOON && hm < '17:00') { fire('a_' + today, '🍽️ อย่าลืมลงทะเบียนอาหาร', 'ยังเปิดรับลงทะเบียนอยู่ (ปิด ' + dlText + ' น.) รีบลงทะเบียนก่อนหมดเวลา'); return; }
 }
-// รันฟังก์ชันนี้ "ครั้งเดียว" เพื่อติดตั้งตัวจับเวลา (หลังจากนั้นทำงานเองทุก 30 นาที)
+// รันฟังก์ชันนี้ "ครั้งเดียว" เพื่อติดตั้งตัวจับเวลา (หลังจากนั้นทำงานเองทุก 15 นาที)
 function setupReminderTrigger() {
   var t = ScriptApp.getProjectTriggers();
   for (var i = 0; i < t.length; i++) if (t[i].getHandlerFunction() === 'remindDeadline') ScriptApp.deleteTrigger(t[i]);
-  ScriptApp.newTrigger('remindDeadline').timeBased().everyMinutes(30).create();
-  return 'ติดตั้งตัวจับเวลาแล้ว — จะเช็คและเตือนอัตโนมัติทุก 30 นาที';
+  ScriptApp.newTrigger('remindDeadline').timeBased().everyMinutes(15).create();
+  return 'ติดตั้งตัวจับเวลาแล้ว — เช็คทุก 15 นาที (เตือน 07:00, 16:45 และก่อนปิด 1 ชม.)';
 }

@@ -2612,7 +2612,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='4.6';
+const APP_VERSION='4.7';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -3141,7 +3141,7 @@ function publishMenu(){
   o.innerHTML=`<div class="modal-bx"><div class="mi">✅</div><div class="mt">ยืนยันเมนูของรอบนี้?</div><div class="mm">เมื่อยืนยันแล้ว เมนูจะแสดงให้พนักงานทันที<br>ถ้าใส่ตกหล่นภายหลัง ยังกดแก้ไขเพิ่มได้</div><div style="display:flex;gap:10px"><button class="btn btn-ghost" style="margin:0;flex:1">ยกเลิก</button><button class="btn btn-brand" style="margin:0;flex:1">ยืนยัน</button></div></div>`;
   const btns=o.querySelectorAll('button');btns[0].onclick=()=>o.remove();
   btns[1].onclick=()=>{o.remove();menuPublished=true;menuStep='round';render();
-    apiPost('saveConfig',{menuPub:1}).then(res=>{
+    apiPost('saveConfig',{menuPub:1,regDeadline:new Date(regCutoff()).toISOString()}).then(res=>{
       if(res&&res.ok){toast('ยืนยันเมนูรอบนี้แล้ว ✓ พนักงานเห็นเมนูได้ทันที');
         /* ส่ง push แจ้งพนักงานทุกคนที่เปิดแจ้งเตือนไว้ ว่ามีเมนูใหม่ */
         apiPost('pushNotify',{heading:'🍽️ มีเมนูใหม่แล้ว!',content:'เปิดให้ลงทะเบียนรับประทานอาหารรอบใหม่แล้ว รีบลงทะเบียนก่อนหมดเวลา ('+periodLabel()+')',url:baseUrl()});}
@@ -3161,7 +3161,7 @@ function confirmSetup(){rebuildDays();
   snapCaptured=false;
   menuDays=emptyMenuDays();menuExtra=[];registrations={};
   menuPublished=false;menuEditOverride=false;
-  if(apiEnabled())apiPost('newRound',{rounds:rounds,startDate:startDate,menuPub:0}).then(function(res){
+  if(apiEnabled())apiPost('newRound',{rounds:rounds,startDate:startDate,menuPub:0,regDeadline:new Date(regCutoff()).toISOString()}).then(function(res){
     if(!res||res.ok===false)showPopup('⚠️','เริ่มรอบใหม่ไม่สำเร็จ','เชื่อมต่อฐานข้อมูลไม่ได้ กรุณาตรวจอินเทอร์เน็ต<br>แล้วตั้งรอบใหม่อีกครั้ง ก่อนเริ่มใส่เมนู');});
   menuReady=true;menuStep='edit';selDay=0;selMeal='breakfast';render();}
 let pendingImg=null;
