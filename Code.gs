@@ -221,6 +221,8 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     const action = data.action;
+    // ส่งแจ้งเตือน push (ไม่เปลี่ยนข้อมูล จึงไม่ต้องเลื่อนรุ่นแคช) — ตอบกลับทันที
+    if (action === 'pushNotify') return jsonOut(osPush_(data.heading, data.content, data.url));
     var out = null;
     if (action === 'saveConfig') out = saveConfig(data);
     else if (action === 'saveMenuDay') out = saveMenuDay(data);
@@ -465,4 +467,44 @@ function saveRegistration(data) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ---------- WEB PUSH (OneSignal) ----------
+// ส่งแจ้งเตือนเด้งหน้าจอ (เหมือน LINE) ให้ทุกคนที่กด "เปิดการแจ้งเตือน" ไว้
+// สำคัญ: REST API Key เป็นความลับ — เก็บใน Script Properties เท่านั้น ห้ามใส่ในไฟล์นี้ (ไฟล์นี้อยู่บน GitHub)
+//   ตั้งค่า: Apps Script > Project Settings > Script Properties > เพิ่ม key ชื่อ ONESIGNAL_REST_KEY
+var ONESIGNAL_APP_ID = 'e50edb91-4c00-44e6-ae2a-e0d3505d3720';
+var APP_HOME_URL = 'https://boboapp2020-design.github.io/ML-CanteenRegister/';
+function osKey_() { return PropertiesService.getScriptProperties().getProperty('ONESIGNAL_REST_KEY') || ''; }
+function osPush_(heading, content, url) {
+  var key = osKey_();
+  if (!key) return { ok: false, error: 'ยังไม่ได้ตั้งค่า ONESIGNAL_REST_KEY ใน Script Properties' };
+  if (!heading) heading = 'โรงครัวมิตรลาว';
+  if (!content) content = '';
+  var payload = {
+    app_id: ONESIGNAL_APP_ID,
+    headings: { en: heading },
+    contents: { en: content },
+    included_segments: ['Subscribed Users'],
+    url: url || APP_HOME_URL
+  };
+  try {
+    var res = UrlFetchApp.fetch('https://onesignal.com/api/v1/notifications', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { Authorization: 'Basic ' + key },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    var code = res.getResponseCode();
+    var body = res.getContentText();
+    return { ok: code === 200, code: code, body: body };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+}
+
+// ทดสอบส่งเอง: รันฟังก์ชันนี้จาก Apps Script Editor เพื่อยิง push ทดสอบไปหาทุกคนที่สมัครไว้
+function testPush() {
+  return osPush_('🔔 ทดสอบแจ้งเตือน', 'ระบบแจ้งเตือนโรงครัวมิตรลาวพร้อมใช้งานแล้ว', APP_HOME_URL);
 }

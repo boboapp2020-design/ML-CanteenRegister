@@ -2612,7 +2612,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='4.5';
+const APP_VERSION='4.6';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -3142,7 +3142,9 @@ function publishMenu(){
   const btns=o.querySelectorAll('button');btns[0].onclick=()=>o.remove();
   btns[1].onclick=()=>{o.remove();menuPublished=true;menuStep='round';render();
     apiPost('saveConfig',{menuPub:1}).then(res=>{
-      if(res&&res.ok)toast('ยืนยันเมนูรอบนี้แล้ว ✓ พนักงานเห็นเมนูได้ทันที');
+      if(res&&res.ok){toast('ยืนยันเมนูรอบนี้แล้ว ✓ พนักงานเห็นเมนูได้ทันที');
+        /* ส่ง push แจ้งพนักงานทุกคนที่เปิดแจ้งเตือนไว้ ว่ามีเมนูใหม่ */
+        apiPost('pushNotify',{heading:'🍽️ มีเมนูใหม่แล้ว!',content:'เปิดให้ลงทะเบียนรับประทานอาหารรอบใหม่แล้ว รีบลงทะเบียนก่อนหมดเวลา ('+periodLabel()+')',url:baseUrl()});}
       else showPopup('⚠️','บันทึกการยืนยันไม่สำเร็จ','เชื่อมต่อฐานข้อมูลไม่ได้ กรุณาตรวจอินเทอร์เน็ต<br>แล้วกดยืนยันเมนูอีกครั้ง');
       /* ตรวจทานกับเซิร์ฟเวอร์ทุกครั้งหลังยืนยัน: มื้อไหนไปไม่ถึง ส่งซ้ำอัตโนมัติ */
       whenOutboxEmpty(function(){verifyMenus().then(function(miss){
