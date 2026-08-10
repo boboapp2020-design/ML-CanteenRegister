@@ -14,6 +14,25 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<!-- ===== OneSignal Web Push (แจ้งเตือนเด้งหน้าจอเหมือน LINE) =====
+     ตั้ง service worker ของ OneSignal ไว้ในโฟลเดอร์ย่อย /onesignal/ แยก scope
+     กันชนกับ sw.js เดิมของแอป (หนึ่ง scope มี SW ได้ตัวเดียว) -->
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+window.OneSignalDeferred = window.OneSignalDeferred || [];
+OneSignalDeferred.push(async function(OneSignal){
+  try{
+    await OneSignal.init({
+      appId: "e50edb91-4c00-44e6-ae2a-e0d3505d3720",
+      safari_web_id: "web.onesignal.auto.43f3e2d2-3818-43ea-aa50-e469d0e1e106",
+      serviceWorkerPath: "ML-CanteenRegister/onesignal/OneSignalSDKWorker.js",
+      serviceWorkerParam: { scope: "/ML-CanteenRegister/onesignal/" },
+      notifyButton: { enable: false }
+    });
+    if(typeof updateNotifBtn==='function')updateNotifBtn();
+  }catch(e){console.warn('OneSignal init failed',e);}
+});
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -2593,7 +2612,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='4.4';
+const APP_VERSION='4.5';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -2864,8 +2883,9 @@ function renderHome(){const _hl=hoursLeft();const dlTxt=regOpen()?`⏰ เปิ
   <button class="hub-btn hub-primary" onclick="startUser()"><span class="ic">📝</span><span>ลงทะเบียนรับประทานอาหาร<small>สำหรับพนักงาน · ใส่รหัสของคุณ</small></span></button>
   <button class="hub-btn" onclick="fbCode='';go('fbCode')"><span class="ic ic-amber">💬</span><span>ข้อเสนอแนะ / ให้คะแนน<small>ประเมินความพึงพอใจอาหารโรงครัว</small></span></button>
   <div class="note"><span style="color:${regOpen()?(_hl>0&&_hl<=6?'var(--neg)':'var(--amber)'):'var(--neg)'};font-weight:700">${dlTxt}</span></div>
+  <button id="notifBtn" class="admin-link" style="color:var(--brand);font-weight:800" onclick="nsSubscribe()">🔔 เปิดการแจ้งเตือน (เด้งเตือนเมื่อมีเมนู / ใกล้หมดเวลา)</button>
   <button class="admin-link" style="color:var(--info);opacity:.95" onclick="go('userHelp')">❔ วิธีใช้งานสำหรับพนักงาน</button>
-  <button class="admin-link" onclick="pinInput='';go('adminPin')">⚙ สำหรับผู้ดูแลระบบ</button>`;setTimeout(notifyCheck,400);}
+  <button class="admin-link" onclick="pinInput='';go('adminPin')">⚙ สำหรับผู้ดูแลระบบ</button>`;setTimeout(function(){updateNotifBtn();notifyCheck();},400);}
 
 function renderEmpSearch(){body().innerHTML=`<div class="hint">💡 พิมพ์ชื่อหรือรหัส เพื่อค้นหารหัสพนักงานของคุณ แล้วกดเพื่อลงทะเบียนได้เลย</div>
   <div class="search-wrap"><span class="ic">🔍</span><input id="q" placeholder="ชื่อ หรือ รหัสพนักงาน" oninput="doSearch()" autocomplete="off"></div>
@@ -2905,6 +2925,30 @@ function notifyCheck(){
     notifyModal('🍽️','var(--brand)','มีเมนูใหม่แล้ว!','เปิดให้ลงทะเบียนรับประทานอาหารรอบใหม่แล้ว<br>('+periodLabel()+')<br>ปิดรับ '+regDlText(),'📝 ลงทะเบียนเลย',startUser);
     return;
   }
+}
+/* ===== Web Push (OneSignal) — ปุ่ม "เปิดการแจ้งเตือน" เด้งหน้าจอเหมือน LINE =====
+   พนักงานต้องกดอนุญาตครั้งเดียว จากนั้นเซิร์ฟเวอร์ส่ง push เด้งได้แม้ปิดแอป */
+function nsPushSupported(){return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;}
+function nsIsStandalone(){try{return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone===true;}catch(e){return false;}}
+function nsIOS(){try{return /iPhone|iPad|iPod/.test(navigator.userAgent);}catch(e){return false;}}
+function nsGranted(){try{return 'Notification' in window && Notification.permission==='granted';}catch(e){return false;}}
+function updateNotifBtn(){var el=document.getElementById('notifBtn');if(!el)return;
+  if(!nsPushSupported()){el.style.display='none';return;}
+  if(nsGranted()){el.innerHTML='🔔 การแจ้งเตือนเปิดอยู่ ✓';el.style.color='var(--pos)';el.style.opacity='.75';el.onclick=null;return;}
+  el.innerHTML='🔔 เปิดการแจ้งเตือน (เด้งเตือนเมื่อมีเมนู / ใกล้หมดเวลา)';el.style.color='var(--brand)';el.style.opacity='1';el.onclick=nsSubscribe;}
+function nsSubscribe(){
+  if(!nsPushSupported()){showPopup('😕','อุปกรณ์นี้ไม่รองรับ','เบราว์เซอร์/อุปกรณ์นี้ยังไม่รองรับการแจ้งเตือนแบบเด้งหน้าจอ');return;}
+  if(nsIOS()&&!nsIsStandalone()){showPopup('📲','iPhone ต้องติดตั้งแอปก่อน','บน iPhone: กดปุ่มแชร์ → "เพิ่มลงในหน้าจอโฮม" แล้วเปิดแอปจากไอคอน<br>จากนั้นจึงกดเปิดการแจ้งเตือนได้ (ข้อจำกัดของ iOS)');return;}
+  window.OneSignalDeferred=window.OneSignalDeferred||[];
+  window.OneSignalDeferred.push(async function(OneSignal){
+    try{
+      await OneSignal.Notifications.requestPermission();
+      try{await OneSignal.User.PushSubscription.optIn();}catch(e){}
+      if(nsGranted())toast('เปิดการแจ้งเตือนแล้ว ✓');
+      else toast('ยังไม่ได้อนุญาต — กดอนุญาตเพื่อรับการแจ้งเตือน');
+    }catch(e){console.warn('subscribe failed',e);}
+    updateNotifBtn();
+  });
 }
 /* ===== กันลงทะเบียนซ้ำ: บันทึกในเครื่อง + รอ server ยืนยันจริง ===== */
 let stateFresh=false;            /* true = เพิ่งดึงข้อมูลจาก server สำเร็จ */
