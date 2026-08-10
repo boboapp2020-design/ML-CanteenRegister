@@ -2546,9 +2546,9 @@ function thDateISO(iso){const d=new Date(iso+'T00:00:00');return{dow:THDOW[d.get
 let rounds=3, startDate=ymd(addDays(ymd(new Date()),1));
 /* ปิดลงทะเบียน 23:59 น. (เวลาไทย) ของวันก่อนวันเริ่มรอบ */
 /* ปิดลงทะเบียน 17:00 น. (เวลาไทย) ของวันก่อนวันเริ่มรอบ
-   ยกเว้นครั้งเดียว: รอบพิเศษ ปิดรับ พุธ 5 ส.ค. 2026 เวลา 18:00 น.
-   ใช้ค่าที่ช้ากว่าเสมอ จึงหมดอายุตัวเองอัตโนมัติ — รอบที่เริ่มตั้งแต่ 7 ส.ค. เป็นต้นไป กลับมา 17:00 เหมือนเดิม */
-const REG_DL_ONCE=new Date('2026-08-05T18:00:00+07:00').getTime();
+   ยกเว้นครั้งเดียว: รอบเริ่ม 10 ส.ค. 2026 ขยายปิดรับถึง 10 ส.ค. 2026 เวลา 23:59 น.
+   ใช้ค่าที่ช้ากว่าเสมอ จึงหมดอายุตัวเองอัตโนมัติ — รอบถัดไปกลับมาใช้กติกาปกติ (17:00 ของวันก่อนเริ่มรอบ) */
+const REG_DL_ONCE=new Date('2026-08-10T23:59:00+07:00').getTime();
 function regCutoff(){const base=new Date(startDate+'T00:00:00+07:00').getTime()-7*3600*1000;return Math.max(base,REG_DL_ONCE);}
 function regOpen(){return Date.now()<regCutoff();}
 function thStampTH(ms){const d=new Date(ms+7*3600*1000);const p=n=>String(n).padStart(2,'0');return{dow:THDOW[d.getUTCDay()],short:d.getUTCDate()+' '+THMON[d.getUTCMonth()],time:p(d.getUTCHours())+':'+p(d.getUTCMinutes())};}
@@ -2593,7 +2593,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='4.2';
+const APP_VERSION='4.3';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
