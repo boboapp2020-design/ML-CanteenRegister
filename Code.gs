@@ -505,8 +505,11 @@ function osPush_(heading, content, url) {
       var body = res.getContentText();
       var j = {};
       try { j = JSON.parse(body); } catch (e2) {}
-      last = { ok: code === 200 && j.id && Number(j.recipients) > 0, code: code, recipients: Number(j.recipients) || 0, segment: OS_SEGMENTS[i], body: body };
-      if (last.ok) return last;   // เจอ segment ที่ส่งถึงคนจริงแล้ว หยุด (กันส่งซ้ำ)
+      // OneSignal รุ่นใหม่ตอบ {"id":"...","external_id":null} โดยไม่มี recipients — ถ้าได้ id จริง = รับส่งแล้ว
+      var hasId = j.id && String(j.id).length > 0;
+      var hasErr = j.errors && ((j.errors.length) || Object.keys(j.errors).length);
+      last = { ok: code === 200 && hasId && !hasErr, code: code, recipients: (j.recipients === undefined ? null : Number(j.recipients)), segment: OS_SEGMENTS[i], body: body };
+      if (last.ok) return last;   // สำเร็จแล้ว หยุด (กันส่งซ้ำหลาย segment)
     } catch (err) {
       last = { ok: false, error: String(err), segment: OS_SEGMENTS[i] };
     }
