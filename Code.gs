@@ -476,35 +476,48 @@ function saveRegistration(data) {
 var ONESIGNAL_APP_ID = 'e50edb91-4c00-44e6-ae2a-e0d3505d3720';
 var APP_HOME_URL = 'https://boboapp2020-design.github.io/ML-CanteenRegister/';
 function osKey_() { return PropertiesService.getScriptProperties().getProperty('ONESIGNAL_REST_KEY') || ''; }
+// ส่งไปหาทุกคนที่สมัครไว้ — OneSignal แต่ละบัญชีตั้งชื่อ segment "ทุกคน" ไม่เหมือนกัน
+// (รุ่นใหม่ = "Total Subscriptions", รุ่นเก่า = "Subscribed Users") จึงไล่ลองทีละชื่อจนเจออันที่มีคนรับจริง
+var OS_SEGMENTS = ['Total Subscriptions', 'Subscribed Users', 'Active Subscriptions'];
 function osPush_(heading, content, url) {
   var key = osKey_();
   if (!key) return { ok: false, error: 'ยังไม่ได้ตั้งค่า ONESIGNAL_REST_KEY ใน Script Properties' };
   if (!heading) heading = 'โรงครัวมิตรลาว';
   if (!content) content = '';
-  var payload = {
-    app_id: ONESIGNAL_APP_ID,
-    headings: { en: heading },
-    contents: { en: content },
-    included_segments: ['Subscribed Users'],
-    url: url || APP_HOME_URL
-  };
-  try {
-    var res = UrlFetchApp.fetch('https://onesignal.com/api/v1/notifications', {
-      method: 'post',
-      contentType: 'application/json',
-      headers: { Authorization: 'Basic ' + key },
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
-    var code = res.getResponseCode();
-    var body = res.getContentText();
-    return { ok: code === 200, code: code, body: body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
+  var last = null;
+  for (var i = 0; i < OS_SEGMENTS.length; i++) {
+    var payload = {
+      app_id: ONESIGNAL_APP_ID,
+      headings: { en: heading },
+      contents: { en: content },
+      included_segments: [OS_SEGMENTS[i]],
+      url: url || APP_HOME_URL
+    };
+    try {
+      var res = UrlFetchApp.fetch('https://onesignal.com/api/v1/notifications', {
+        method: 'post',
+        contentType: 'application/json',
+        headers: { Authorization: 'Basic ' + key },
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+      });
+      var code = res.getResponseCode();
+      var body = res.getContentText();
+      var j = {};
+      try { j = JSON.parse(body); } catch (e2) {}
+      last = { ok: code === 200 && j.id && Number(j.recipients) > 0, code: code, recipients: Number(j.recipients) || 0, segment: OS_SEGMENTS[i], body: body };
+      if (last.ok) return last;   // เจอ segment ที่ส่งถึงคนจริงแล้ว หยุด (กันส่งซ้ำ)
+    } catch (err) {
+      last = { ok: false, error: String(err), segment: OS_SEGMENTS[i] };
+    }
   }
+  return last;   // ไม่มี segment ไหนส่งถึงเลย — คืนผลล่าสุดไว้ดู error
 }
 
 // ทดสอบส่งเอง: รันฟังก์ชันนี้จาก Apps Script Editor เพื่อยิง push ทดสอบไปหาทุกคนที่สมัครไว้
+// ผลจะถูก log ไว้ดูใน Execution log (บอกว่าใช้ segment ไหน ส่งถึงกี่คน)
 function testPush() {
-  return osPush_('🔔 ทดสอบแจ้งเตือน', 'ระบบแจ้งเตือนโรงครัวมิตรลาวพร้อมใช้งานแล้ว', APP_HOME_URL);
+  var r = osPush_('🔔 ทดสอบแจ้งเตือน', 'ระบบแจ้งเตือนโรงครัวมิตรลาวพร้อมใช้งานแล้ว', APP_HOME_URL);
+  Logger.log(JSON.stringify(r));
+  return r;
 }
