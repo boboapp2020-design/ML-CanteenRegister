@@ -2593,7 +2593,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='4.3';
+const APP_VERSION='4.4';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -2854,7 +2854,7 @@ function setTop(){const titles={empSearch:'ค้นหาพนักงาน'
   if(screen==='home'){hdrEl().className='hdr';hdrEl().innerHTML=`<div class="bm"><img src="${LOGO_CO}"></div><div><div class="bt">โรงครัวมิตรลาว</div><div class="bs">ลงทะเบียนรับประทานอาหาร</div></div><button class="nav" style="margin-left:auto;font-size:21px" onclick="go('appMenu')">☰</button>`;return;}
   hdrEl().className='hdr hdr-bottom';hdrEl().innerHTML=`<button class="nav" onclick="go('home')">⌂</button><span class="title" style="margin:0 auto">${titles[screen]||''}</span><button class="nav" onclick="smartBack()">‹</button>`;}
 
-function renderHome(){const dlTxt=regOpen()?`⏰ เปิดลงทะเบียนถึง ${regDlText()}`:`⏰ ปิดรับลงทะเบียนรอบนี้แล้ว`;body().innerHTML=`
+function renderHome(){const _hl=hoursLeft();const dlTxt=regOpen()?`⏰ เปิดลงทะเบียนถึง ${regDlText()}${_hl>0&&_hl<=12?` · เหลืออีก ${Math.ceil(_hl)} ชม.`:''}`:`⏰ ปิดรับลงทะเบียนรอบนี้แล้ว`;body().innerHTML=`
   <div style="text-align:center;margin-bottom:20px">
     <img src="${LOGO_APP}" alt="app" onclick="openTodayMenu()" style="width:116px;height:116px;border-radius:27px;box-shadow:0 12px 28px rgba(6,47,110,.28);display:block;margin:0 auto 6px;cursor:pointer">
     <div onclick="openTodayMenu()" style="color:var(--info);font-size:12px;font-weight:700;margin-bottom:8px;cursor:pointer">แตะโลโก้เพื่อดูเมนูวันนี้ 🍽️</div>
@@ -2863,9 +2863,9 @@ function renderHome(){const dlTxt=regOpen()?`⏰ เปิดลงทะเบ�
   </div>
   <button class="hub-btn hub-primary" onclick="startUser()"><span class="ic">📝</span><span>ลงทะเบียนรับประทานอาหาร<small>สำหรับพนักงาน · ใส่รหัสของคุณ</small></span></button>
   <button class="hub-btn" onclick="fbCode='';go('fbCode')"><span class="ic ic-amber">💬</span><span>ข้อเสนอแนะ / ให้คะแนน<small>ประเมินความพึงพอใจอาหารโรงครัว</small></span></button>
-  <div class="note"><span style="color:${regOpen()?'var(--amber)':'var(--neg)'};font-weight:700">${dlTxt}</span></div>
+  <div class="note"><span style="color:${regOpen()?(_hl>0&&_hl<=6?'var(--neg)':'var(--amber)'):'var(--neg)'};font-weight:700">${dlTxt}</span></div>
   <button class="admin-link" style="color:var(--info);opacity:.95" onclick="go('userHelp')">❔ วิธีใช้งานสำหรับพนักงาน</button>
-  <button class="admin-link" onclick="pinInput='';go('adminPin')">⚙ สำหรับผู้ดูแลระบบ</button>`;}
+  <button class="admin-link" onclick="pinInput='';go('adminPin')">⚙ สำหรับผู้ดูแลระบบ</button>`;setTimeout(notifyCheck,400);}
 
 function renderEmpSearch(){body().innerHTML=`<div class="hint">💡 พิมพ์ชื่อหรือรหัส เพื่อค้นหารหัสพนักงานของคุณ แล้วกดเพื่อลงทะเบียนได้เลย</div>
   <div class="search-wrap"><span class="ic">🔍</span><input id="q" placeholder="ชื่อ หรือ รหัสพนักงาน" oninput="doSearch()" autocomplete="off"></div>
@@ -2875,6 +2875,37 @@ function doSearch(){const qEl=document.getElementById('q');const q=((qEl&&qEl.va
 function pickUser(code){if(!regOpen()){go('regClosed');return;}if(!userMenuReady()){noMenuPopup();return;}if(regBlocked(code)){alreadyRegPopup();return;}currentUser=employees.find(e=>e.code===code);registrations[code]=registrations[code]||{};regDayIdx=firstIncompleteDay(code);go('userReg');}
 
 function userMenuReady(){return menuPublished&&menuHasFood();}
+/* ===== แจ้งเตือนในแอป (in-app popup) — เด้งตอนเปิดแอป: "มีเมนูใหม่" / "ใกล้หมดเวลา" =====
+   เด้งครั้งเดียวต่อรอบ (จำด้วย localStorage อิงคีย์รอบ) พอขึ้นรอบใหม่ก็เด้งใหม่เอง
+   หมายเหตุ: นี่คือป๊อปอัปตอน "เปิดแอป" — ส่วนแจ้งเตือนเด้งหน้าจอตอนปิดแอป (เหมือน LINE) คือ Web Push เฟสถัดไป */
+function hoursLeft(){return (regCutoff()-Date.now())/3600000;}
+function notifSeen(k){try{return localStorage.getItem('notif_'+k+'_'+regRoundKey())==='1';}catch(e){return false;}}
+function notifMark(k){try{localStorage.setItem('notif_'+k+'_'+regRoundKey(),'1');}catch(e){}}
+function notifyModal(icon,accent,title,msg,primaryLabel,primaryFn){
+  if(document.querySelector('.modal-ov'))return; /* มีป๊อปอัปอื่นค้างอยู่ ไม่ซ้อน */
+  const o=document.createElement('div');o.className='modal-ov';
+  o.innerHTML='<div class="modal-bx"><div class="mi">'+icon+'</div><div class="mt" style="color:'+accent+'">'+title+'</div><div class="mm">'+msg+'</div><div style="display:flex;gap:10px"><button class="btn btn-ghost" style="margin:0;flex:1">ไว้ก่อน</button><button class="btn btn-brand" style="margin:0;flex:1">'+primaryLabel+'</button></div></div>';
+  const b=o.querySelectorAll('button');
+  b[0].onclick=function(){o.remove();};
+  b[1].onclick=function(){o.remove();if(primaryFn)primaryFn();};
+  o.onclick=function(e){if(e.target===o)o.remove();};
+  document.querySelector('.screen').appendChild(o);
+}
+function notifyCheck(){
+  if(screen!=='home'||!stateFresh)return;           /* เด้งเฉพาะหน้าแรก และต่อเมื่อโหลดข้อมูลจริงแล้ว */
+  if(!userMenuReady()||!regOpen())return;           /* ต้องมีเมนูเผยแพร่ + ยังเปิดรับอยู่ */
+  var hl=hoursLeft();
+  if(hl>0&&hl<=6&&!notifSeen('dl')){                 /* ใกล้หมดเวลา (≤6 ชม.) เด้งก่อน */
+    notifMark('dl');
+    notifyModal('⏰','var(--neg)','ใกล้หมดเวลาลงทะเบียน!','เหลืออีกประมาณ <b>'+Math.ceil(hl)+' ชม.</b> จะปิดรับลงทะเบียนรอบนี้<br>(ปิด '+regDlText()+')<br>รีบลงทะเบียนก่อนหมดเวลานะครับ','📝 ลงทะเบียนเลย',startUser);
+    return;
+  }
+  if(!notifSeen('menu')){                            /* มีเมนูใหม่ เด้งครั้งแรกที่เห็นรอบนี้ */
+    notifMark('menu');
+    notifyModal('🍽️','var(--brand)','มีเมนูใหม่แล้ว!','เปิดให้ลงทะเบียนรับประทานอาหารรอบใหม่แล้ว<br>('+periodLabel()+')<br>ปิดรับ '+regDlText(),'📝 ลงทะเบียนเลย',startUser);
+    return;
+  }
+}
 /* ===== กันลงทะเบียนซ้ำ: บันทึกในเครื่อง + รอ server ยืนยันจริง ===== */
 let stateFresh=false;            /* true = เพิ่งดึงข้อมูลจาก server สำเร็จ */
 /* คีย์รวม "รุ่นข้อมูล" (regGen) — พอแอดมินล้างข้อมูล regGen เปลี่ยน คีย์เปลี่ยน บันทึกเก่าเลิกใช้เอง → ลงใหม่ได้ */
