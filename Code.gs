@@ -524,3 +524,39 @@ function testPush() {
   Logger.log(JSON.stringify(r));
   return r;
 }
+
+// ---------- แจ้งเตือน "ใกล้หมดเวลาลงทะเบียน" อัตโนมัติ ----------
+// เดดไลน์ปกติ = 17:00 ของวันก่อนวันเริ่มรอบ (ตรงกับกติกาในแอป)
+// ทำงานด้วย time trigger (ทุก 30 นาที) เรียก remindDeadline() — ส่ง push ครั้งเดียวต่อรอบ
+// เมื่อเหลือเวลา <= REMIND_HOURS_BEFORE ชม. (และเมนูเผยแพร่แล้วเท่านั้น)
+var REMIND_HOURS_BEFORE = 3;
+function _cfgMap_() {
+  var vals = sheet(SHEET_CONFIG).getDataRange().getValues();
+  var m = {};
+  for (var i = 1; i < vals.length; i++) m[vals[i][0]] = vals[i][1];
+  return m;
+}
+function remindDeadline() {
+  var cfg = _cfgMap_();
+  var startDate = isoD(cfg.startDate);
+  var rounds = Number(cfg.rounds) || 0;
+  var menuPub = Number(cfg.menuPub) || 0;
+  if (!startDate || !menuPub) return;                       // ไม่มีรอบ/ยังไม่เผยแพร่เมนู = ไม่เตือน
+  var deadline = new Date(new Date(startDate + 'T00:00:00+07:00').getTime() - 7 * 3600 * 1000);
+  var hoursUntil = (deadline.getTime() - Date.now()) / 3600000;
+  if (hoursUntil <= 0 || hoursUntil > REMIND_HOURS_BEFORE) return;   // ยังไม่ถึงช่วงเตือน หรือเลยเดดไลน์แล้ว
+  var roundId = startDate + '|' + rounds;
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('dl_sent_' + roundId) === '1') return;       // รอบนี้เตือนไปแล้ว
+  var when = Utilities.formatDate(deadline, 'Asia/Bangkok', 'dd/MM HH:mm');
+  var r = osPush_('⏰ ใกล้หมดเวลาลงทะเบียน!', 'ปิดรับลงทะเบียนวันที่ ' + when + ' น. รีบลงทะเบียนก่อนหมดเวลา', APP_HOME_URL);
+  if (r && r.ok) props.setProperty('dl_sent_' + roundId, '1');
+  return r;
+}
+// รันฟังก์ชันนี้ "ครั้งเดียว" เพื่อติดตั้งตัวจับเวลา (หลังจากนั้นทำงานเองทุก 30 นาที)
+function setupReminderTrigger() {
+  var t = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < t.length; i++) if (t[i].getHandlerFunction() === 'remindDeadline') ScriptApp.deleteTrigger(t[i]);
+  ScriptApp.newTrigger('remindDeadline').timeBased().everyMinutes(30).create();
+  return 'ติดตั้งตัวจับเวลาแล้ว — จะเช็คและเตือนอัตโนมัติทุก 30 นาที';
+}
