@@ -532,7 +532,7 @@ function testPush() {
 // ส่งซ้ำทุกวัน 2 เวลา (เช้า 07:00 และบ่าย 16:45) + เตือนด่วนก่อนปิด 1 ชม. แล้วหยุดเมื่อปิดรับ
 // เวลาปิดรับ: ใช้ค่า regDeadline (ISO) จาก Config ถ้ามี (รองรับกรณีขยายเวลาพิเศษ)
 //   ถ้าไม่มี ใช้กติกามาตรฐาน = 17:00 ของวันก่อนวันเริ่มรอบ
-// ทำงานด้วย time trigger ทุก 15 นาที · แต่ละช่วง (เช้า/บ่ายของแต่ละวัน และก่อนปิด) ส่งครั้งเดียว
+// ทำงานด้วย time trigger ทุก 5 นาที · เช้า/บ่ายวันละครั้ง · ชั่วโมงสุดท้ายเตือนทุก 10 นาที
 var REMIND_MORNING = '07:00';     // "ก่อน 8 โมง"
 var REMIND_AFTERNOON = '16:45';
 function _cfgMap_() {
@@ -566,17 +566,24 @@ function remindDeadline() {
     var r = osPush_(heading, content, APP_HOME_URL);
     if (r && r.ok) props.setProperty(k, '1');
   }
-  // 1) ก่อนปิด 1 ชม. — เตือนด่วนครั้งสุดท้าย (สำคัญสุด ตรวจก่อน)
-  if (hoursUntil <= 1) { fire('final', '⏰ ใกล้ปิดรับลงทะเบียน!', 'เหลือไม่ถึง 1 ชม. (ปิด ' + dlText + ' น.) รีบลงทะเบียนด่วน!'); return; }
+  // 1) ชั่วโมงสุดท้ายก่อนปิด — เตือนถี่ "ทุก 10 นาที" จนถึงเวลาปิด (นับถอยหลังเหลือกี่นาที)
+  //    dedup ตาม "ช่วง 10 นาที" ของนาฬิกา เพื่อให้ส่งช่วงละครั้ง (trigger เดินทุก 5 นาที)
+  if (hoursUntil <= 1) {
+    var mm = Number(Utilities.formatDate(new Date(), 'Asia/Bangkok', 'mm'));
+    var bucket = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd_HH') + '_' + Math.floor(mm / 10);
+    var minsLeft = Math.max(1, Math.round(hoursUntil * 60));
+    fire('f_' + bucket, '⏰ ใกล้ปิดรับลงทะเบียน!', 'เหลืออีกประมาณ ' + minsLeft + ' นาที (ปิด ' + dlText + ' น.) รีบลงทะเบียนด่วน!');
+    return;
+  }
   // 2) รอบเช้า 07:00 (หน้าต่าง 07:00–07:59) วันละครั้ง
   if (hm >= REMIND_MORNING && hm < '08:00') { fire('m_' + today, '🍽️ อย่าลืมลงทะเบียนอาหาร', 'ยังเปิดรับลงทะเบียนอยู่ (ปิด ' + dlText + ' น.) รีบลงทะเบียนก่อนหมดเวลา'); return; }
   // 3) รอบบ่าย 16:45 (หน้าต่าง 16:45–16:59) วันละครั้ง
   if (hm >= REMIND_AFTERNOON && hm < '17:00') { fire('a_' + today, '🍽️ อย่าลืมลงทะเบียนอาหาร', 'ยังเปิดรับลงทะเบียนอยู่ (ปิด ' + dlText + ' น.) รีบลงทะเบียนก่อนหมดเวลา'); return; }
 }
-// รันฟังก์ชันนี้ "ครั้งเดียว" เพื่อติดตั้งตัวจับเวลา (หลังจากนั้นทำงานเองทุก 15 นาที)
+// รันฟังก์ชันนี้ "ครั้งเดียว" เพื่อติดตั้ง/อัปเดตตัวจับเวลา (หลังจากนั้นทำงานเองทุก 5 นาที)
 function setupReminderTrigger() {
   var t = ScriptApp.getProjectTriggers();
   for (var i = 0; i < t.length; i++) if (t[i].getHandlerFunction() === 'remindDeadline') ScriptApp.deleteTrigger(t[i]);
-  ScriptApp.newTrigger('remindDeadline').timeBased().everyMinutes(15).create();
-  return 'ติดตั้งตัวจับเวลาแล้ว — เช็คทุก 15 นาที (เตือน 07:00, 16:45 และก่อนปิด 1 ชม.)';
+  ScriptApp.newTrigger('remindDeadline').timeBased().everyMinutes(5).create();
+  return 'ติดตั้งตัวจับเวลาแล้ว — เช็คทุก 5 นาที (เตือน 07:00, 16:45 และชั่วโมงสุดท้ายทุก 10 นาที)';
 }
