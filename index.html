@@ -2612,7 +2612,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='4.7';
+const APP_VERSION='4.8';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -3289,7 +3289,7 @@ function noRegRows(list){const lines=[['รอบ','รหัสพนักง�
     employees.forEach(function(e){const days=regs[e.code]||{};let n=0;
       Object.values(days).forEach(function(r){MEALS.forEach(function(m){if(m[0] in r)n++;});});
       /* นับเป็น 1 คนต่อ 1 รอบ ไม่แยกวัน/คาบ — ไม่ลงเลยทั้งรอบเท่านั้นจึงนับ */
-      if(n===0){total++;lines.push([lbl,e.code,e.name,e.dept||e.unit||''].map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(','));}});});
+      if(n===0){total++;lines.push([lbl,e.code,e.name,e.unit||e.dept||''].map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(','));}});});
   return{lines:lines,total:total};}
 function doNoRegExport(idx){const list=(idx==='all')?histRounds.slice().reverse():[histRounds[idx]];
   const r=noRegRows(list);
