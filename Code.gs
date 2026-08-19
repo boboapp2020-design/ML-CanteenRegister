@@ -552,7 +552,8 @@ function remindDeadline() {
   var rounds = Number(cfg.rounds) || 0;
   var menuPub = Number(cfg.menuPub) || 0;
   if (!startDate || !menuPub) return;                    // ไม่มีรอบ/ยังไม่เผยแพร่เมนู = ไม่เตือน
-  var deadline = _effectiveDeadline_(cfg); if (!deadline) return;
+  remindMeals_(startDate, rounds);                       // A) เตือนก่อนเวลาทานอาหาร (วันที่มีเมนู)
+  var deadline = _effectiveDeadline_(cfg); if (!deadline) return;  // B) เตือนรีบลงทะเบียน (จนถึงปิดรับ)
   var hoursUntil = (deadline.getTime() - Date.now()) / 3600000;
   if (hoursUntil <= 0) return;                           // ปิดรับแล้ว หยุดเตือน
   var roundId = startDate + '|' + rounds;
@@ -579,6 +580,44 @@ function remindDeadline() {
   if (hm >= REMIND_MORNING && hm < '08:00') { fire('m_' + today, '🍽️ อย่าลืมลงทะเบียนอาหาร', 'ยังเปิดรับลงทะเบียนอยู่ (ปิด ' + dlText + ' น.) รีบลงทะเบียนก่อนหมดเวลา'); return; }
   // 3) รอบบ่าย 16:45 (หน้าต่าง 16:45–16:59) วันละครั้ง
   if (hm >= REMIND_AFTERNOON && hm < '17:00') { fire('a_' + today, '🍽️ อย่าลืมลงทะเบียนอาหาร', 'ยังเปิดรับลงทะเบียนอยู่ (ปิด ' + dlText + ' น.) รีบลงทะเบียนก่อนหมดเวลา'); return; }
+}
+// ---------- แจ้งเตือน "ก่อนเวลาทานอาหาร" (ทุกวันที่มีเมนู ในช่วงรอบ) ----------
+// เตือนแยกตามมื้อ ตามเวลาที่กำหนด · เฉพาะมื้อที่มีเมนูของวันนั้น · ส่งครั้งเดียวต่อมื้อต่อวัน
+// หน้าต่างเวลา [s, e) กว้าง 10 นาที เผื่อ trigger (ทุก 5 นาที) มาไม่ตรงเป๊ะ
+var MEAL_REMIND = [
+  { key: 'breakfast', s: '07:30', e: '07:40', label: 'อาหารเช้า' },
+  { key: 'lunch',     s: '11:30', e: '11:40', label: 'อาหารกลางวัน' },
+  { key: 'dinner',    s: '16:30', e: '16:40', label: 'อาหารเย็น' }
+];
+function _menuItemsFor_(menuVals, dayIndex, mealKey) {
+  for (var i = 1; i < menuVals.length; i++) {
+    if (String(menuVals[i][0]) === String(dayIndex) && menuVals[i][2] === mealKey) {
+      try { return JSON.parse(menuVals[i][3] || '[]'); } catch (e) { return []; }
+    }
+  }
+  return [];
+}
+function remindMeals_(startDate, rounds) {
+  var today = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd');
+  var hm = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'HH:mm');
+  // วันนี้เป็นวันที่เท่าไรของรอบ (0 = วันแรก) — ต้องอยู่ในช่วง 0..rounds-1
+  var startMs = new Date(startDate + 'T00:00:00+07:00').getTime();
+  var todayMs = new Date(today + 'T00:00:00+07:00').getTime();
+  var dayIndex = Math.round((todayMs - startMs) / 86400000);
+  if (dayIndex < 0 || dayIndex >= rounds) return;        // วันนี้ไม่อยู่ในรอบ = ไม่เตือนมื้อ
+  var menuVals = sheet(SHEET_MENU).getDataRange().getValues();
+  var props = PropertiesService.getScriptProperties();
+  for (var i = 0; i < MEAL_REMIND.length; i++) {
+    var m = MEAL_REMIND[i];
+    if (!(hm >= m.s && hm < m.e)) continue;              // ยังไม่ถึงหน้าต่างเวลาของมื้อนี้
+    var k = 'meal_' + today + '_' + m.key;
+    if (props.getProperty(k) === '1') continue;          // มื้อนี้ของวันนี้เตือนไปแล้ว
+    var items = _menuItemsFor_(menuVals, dayIndex, m.key);
+    if (!items.length) continue;                         // ไม่มีเมนูมื้อนี้ = ไม่เตือน
+    var names = items.map(function (x) { return x.name; }).join(' / ');
+    var r = osPush_('🍽️ ถึงเวลา' + m.label + 'แล้ว', 'เมนูวันนี้: ' + names + ' · เชิญรับประทานที่โรงอาหารได้เลย', APP_HOME_URL);
+    if (r && r.ok) props.setProperty(k, '1');
+  }
 }
 // รันฟังก์ชันนี้ "ครั้งเดียว" เพื่อติดตั้ง/อัปเดตตัวจับเวลา (หลังจากนั้นทำงานเองทุก 5 นาที)
 function setupReminderTrigger() {
