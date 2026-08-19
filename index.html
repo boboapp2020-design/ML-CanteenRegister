@@ -2568,7 +2568,9 @@ let rounds=3, startDate=ymd(addDays(ymd(new Date()),1));
    ยกเว้นครั้งเดียว: รอบเริ่ม 10 ส.ค. 2026 ขยายปิดรับถึง 10 ส.ค. 2026 เวลา 23:59 น.
    ใช้ค่าที่ช้ากว่าเสมอ จึงหมดอายุตัวเองอัตโนมัติ — รอบถัดไปกลับมาใช้กติกาปกติ (17:00 ของวันก่อนเริ่มรอบ) */
 const REG_DL_ONCE=new Date('2026-08-12T18:00:00+07:00').getTime();
-function regCutoff(){const base=new Date(startDate+'T00:00:00+07:00').getTime()-7*3600*1000;return Math.max(base,REG_DL_ONCE);}
+/* เวลาปิดรับที่แอดมินตั้งเอง/ระบบบันทึกไว้ใน Config (ISO) — ถ้ามีให้ใช้ค่านี้ตรง ๆ แทนค่าที่คำนวณ */
+let regDeadlineISO='';
+function regCutoff(){var t=regDeadlineISO?Date.parse(regDeadlineISO):NaN;if(!isNaN(t))return t;const base=new Date(startDate+'T00:00:00+07:00').getTime()-7*3600*1000;return Math.max(base,REG_DL_ONCE);}
 function regOpen(){return Date.now()<regCutoff();}
 function thStampTH(ms){const d=new Date(ms+7*3600*1000);const p=n=>String(n).padStart(2,'0');return{dow:THDOW[d.getUTCDay()],short:d.getUTCDate()+' '+THMON[d.getUTCMonth()],time:p(d.getUTCHours())+':'+p(d.getUTCMinutes())};}
 function regDlText(){const c=thStampTH(regCutoff());return c.dow+' '+c.short+' เวลา '+c.time+' น.';}
@@ -2612,7 +2614,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='4.9';
+const APP_VERSION='5.0';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -2776,6 +2778,7 @@ function saveStateCache(st){try{localStorage.setItem(LS_STATE,JSON.stringify(st)
 function loadStateCache(){try{const s=localStorage.getItem(LS_STATE);return s?JSON.parse(s):null;}catch(e){return null;}}
 function applyStateFromAPI(st){rounds=st.rounds||rounds;startDate=isoDateStr(st.startDate)||startDate;
   regGen=(st.regGen===undefined||st.regGen===null)?regGen:(Number(st.regGen)||0);
+  regDeadlineISO=(st.regDeadline===undefined||st.regDeadline===null)?'':String(st.regDeadline||'');
   menuDays=emptyMenuDays();menuExtra=[];
   const menu=st.menu||{};
   /* dayIndex ที่เกินจำนวนวันของรอบ ไม่ทิ้ง — เก็บใส่ menuExtra ไว้โชว์ในหน้าเมนู (คำนวณวันที่จาก startDate + dayIndex) */
@@ -2867,7 +2870,7 @@ window.addEventListener('popstate',function(e){
   try{history.pushState({d:navStack.length},'');}catch(e2){}
   render();
 });
-function render(){const map={home:renderHome,empSearch:renderEmpSearch,adminPin:renderAdminPin,adminPinSet:renderAdminPinSet,adminHub:renderAdminHub,adminMenu:renderAdminMenu,adminDash:renderAdminDash,adminData:renderAdminData,adminEmp:renderAdminEmp,adminQR:renderAdminQR,checkin:renderCheckin,todayMenu:renderTodayMenu,appMenu:renderAppMenu,userCode:renderUserCode,userReg:renderUserReg,userDone:renderUserDone,regClosed:renderRegClosed,fbCode:renderFbCode,fbForm:renderFbForm,fbDone:renderFbDone,userHelp:renderUserHelp};setTop();body().className='app-body'+(screen==='home'?' center':'');(map[screen]||renderHome)();}
+function render(){const map={home:renderHome,empSearch:renderEmpSearch,adminPin:renderAdminPin,adminPinSet:renderAdminPinSet,adminHub:renderAdminHub,adminMenu:renderAdminMenu,adminDash:renderAdminDash,adminData:renderAdminData,adminEmp:renderAdminEmp,adminQR:renderAdminQR,adminDeadline:renderAdminDeadline,checkin:renderCheckin,todayMenu:renderTodayMenu,appMenu:renderAppMenu,userCode:renderUserCode,userReg:renderUserReg,userDone:renderUserDone,regClosed:renderRegClosed,fbCode:renderFbCode,fbForm:renderFbForm,fbDone:renderFbDone,userHelp:renderUserHelp};setTop();body().className='app-body'+(screen==='home'?' center':'');(map[screen]||renderHome)();}
 function setTop(){const titles={empSearch:'ค้นหาพนักงาน',adminPin:'เข้าสู่ระบบผู้ดูแล',adminPinSet:'ตั้งค่า PIN',adminHub:'ผู้ดูแลระบบ',adminMenu:'จัดเมนู',adminDash:'แดชบอร์ด',adminData:'ข้อมูล & ส่งออก',adminEmp:'จัดการพนักงาน',adminQR:'QR เช็คอิน',checkin:'เช็คอินโรงอาหาร',todayMenu:'เมนูอาหาร',appMenu:'เกี่ยวกับแอป',userCode:'ลงทะเบียน',userReg:'ลงทะเบียน',userDone:'สำเร็จ',regClosed:'ลงทะเบียน',fbCode:'ข้อเสนอแนะ',fbForm:'ให้คะแนน & ข้อเสนอแนะ',fbDone:'ขอบคุณ',userHelp:'วิธีใช้งาน'};
   const backTo={empSearch:'home',adminPin:'home',adminPinSet:'adminHub',adminHub:'home',adminMenu:'adminHub',adminDash:'adminHub',adminData:'adminHub',adminEmp:'adminHub',adminQR:'adminHub',checkin:'home',todayMenu:'home',appMenu:'home',userCode:'home',userReg:'home',userDone:'home',regClosed:'home',fbCode:'home',fbForm:'home',fbDone:'home',userHelp:'home'};
   if(screen==='home'){hdrEl().className='hdr';hdrEl().innerHTML=`<div class="bm"><img src="${LOGO_CO}"></div><div><div class="bt">โรงครัวมิตรลาว</div><div class="bs">ลงทะเบียนรับประทานอาหาร</div></div><button class="nav" style="margin-left:auto;font-size:21px" onclick="go('appMenu')">☰</button>`;return;}
@@ -3026,8 +3029,39 @@ function renderAdminHub(){body().innerHTML=`<div class="note" style="text-align:
   <button class="hub-btn" onclick="go('adminData')"><span class="ic ic-amber">📋</span><span>ข้อมูล & ส่งออก Excel<small>ดูรายคน · แชร์เป็นไฟล์ Excel</small></span></button>
   <button class="hub-btn" onclick="empMgmtMode='add';empDelQ='';empFormReset();go('adminEmp')"><span class="ic ic-blue">👥</span><span>จัดการพนักงาน<small>เพิ่ม / ลบ พนักงานในฐานข้อมูล (ยืนยันด้วย PIN)</small></span></button>
   <button class="hub-btn" onclick="go('adminQR')"><span class="ic ic-amber">🧾</span><span>QR เช็คอินหน้าโรงอาหาร<small>พิมพ์ QR ให้พนักงานสแกนยืนยัน "มาทานจริง"</small></span></button>
+  <button class="hub-btn" onclick="go('adminDeadline')"><span class="ic ic-blue">⏰</span><span>เปิด/ขยายเวลาลงทะเบียน (พิเศษ)<small>เลือกวัน–เวลาปิดรับเอง แทนค่าที่ระบบตั้งไว้</small></span></button>
   <button class="hub-btn" onclick="npNew='';npConfirm='';npStage='new';go('adminPinSet')"><span class="ic ic-slate">🔑</span><span>ตั้งค่า / เปลี่ยน PIN<small>เปลี่ยนรหัสผู้ดูแล (เก็บในเครื่อง)</small></span></button>
   <button class="hub-btn hub-danger" onclick="clearRegAsk()"><span class="ic ic-red">🗑️</span><span>ล้างข้อมูลการลงทะเบียน<small>เริ่มบันทึกใหม่ · เก็บเมนูเดิมไว้ (ยืนยันด้วย PIN)</small></span></button>`;}
+/* ===== เปิด/ขยายเวลาลงทะเบียนพิเศษ: แอดมินเลือกวัน–เวลาปิดเอง (มีผลทุกเครื่อง + ตัวแจ้งเตือน) ===== */
+function renderAdminDeadline(){
+  var cur=regCutoff();var d=new Date(cur+7*3600*1000);var p=function(n){return String(n).padStart(2,'0');};
+  var dv=d.getUTCFullYear()+'-'+p(d.getUTCMonth()+1)+'-'+p(d.getUTCDate());
+  var tv=p(d.getUTCHours())+':'+p(d.getUTCMinutes());
+  var custom=!!regDeadlineISO;
+  body().innerHTML=`<div class="hint">ตั้งวัน–เวลาปิดรับลงทะเบียนเอง (กรณีพิเศษ) · มีผลกับพนักงานทุกเครื่องทันที</div>
+  <div class="card">
+    <div class="note" style="text-align:left;padding:4px 2px 12px;line-height:1.9">ตอนนี้ปิดรับ: <b>${regDlText()}</b><br>${custom?'<span style="color:var(--amber);font-weight:700">● ตั้งเอง (พิเศษ)</span>':'<span style="color:var(--muted)">● ค่าระบบ (17:00 วันก่อนเริ่มรอบ)</span>'} · ${regOpen()?'<span style="color:var(--pos);font-weight:700">เปิดรับอยู่</span>':'<span style="color:var(--neg);font-weight:700">ปิดรับแล้ว</span>'}</div>
+    <label class="fld">วันที่ปิดรับ</label><input class="txt" type="date" id="dlDate" value="${dv}">
+    <label class="fld">เวลาปิดรับ</label><input class="txt" type="time" id="dlTime" value="${tv}">
+  </div>
+  <button class="btn btn-brand" onclick="saveSpecialDeadline()">✓ บันทึก (เปิดให้ลงทะเบียนถึงเวลานี้)</button>
+  ${custom?`<button class="btn btn-ghost" onclick="resetSpecialDeadline()">↩︎ กลับไปใช้ค่าระบบ</button>`:''}
+  <button class="btn btn-ghost" onclick="go('adminHub')">กลับเมนูผู้ดูแล</button>
+  <div class="note" style="text-align:left;line-height:1.85">• ตั้งเวลาช้ากว่าตอนนี้ = เปิด/ขยายให้ลงทะเบียนต่อ<br>• ตัวแจ้งเตือน "ใกล้ปิดรับ" จะอิงเวลานี้<br>• ใช้เฉพาะรอบปัจจุบัน · ขึ้นรอบใหม่กลับเป็นค่าระบบเอง</div>`;
+}
+function saveSpecialDeadline(){
+  var dt=document.getElementById('dlDate').value,tm=document.getElementById('dlTime').value;
+  if(!dt||!tm){toast('กรุณาเลือกวันและเวลา');return;}
+  var iso=dt+'T'+tm+':00+07:00';if(isNaN(Date.parse(iso))){toast('วัน-เวลาไม่ถูกต้อง');return;}
+  regDeadlineISO=iso;
+  apiPost('saveConfig',{regDeadline:iso}).then(function(res){if(!res||res.ok===false)showPopup('⚠️','บันทึกไม่สำเร็จ','เชื่อมต่อฐานข้อมูลไม่ได้ กรุณาลองใหม่อีกครั้ง');});
+  toast('ตั้งเวลาปิดรับพิเศษแล้ว ✓');go('adminHub');
+}
+function resetSpecialDeadline(){
+  regDeadlineISO='';
+  apiPost('saveConfig',{regDeadline:''}).then(function(){});
+  toast('กลับไปใช้ค่าระบบแล้ว ✓');go('adminHub');
+}
 /* ล้างข้อมูลการลงทะเบียนทั้งหมดของรอบนี้ (เมนูยังอยู่) — ยืนยันด้วย PIN */
 function clearRegAsk(){
   askPIN('ล้างข้อมูลการลงทะเบียน','ระบบจะลบ<b>ข้อมูลการลงทะเบียนทั้งหมด</b>ของรอบนี้<br>เพื่อเริ่มบันทึกใหม่ (เมนูอาหารยังอยู่เหมือนเดิม)<br><span style="color:var(--neg);font-weight:700">ลบแล้วกู้คืนไม่ได้</span><br>ใส่ PIN ผู้ดูแลเพื่อยืนยัน',()=>{
@@ -3161,6 +3195,7 @@ function confirmSetup(){rebuildDays();
   snapCaptured=false;
   menuDays=emptyMenuDays();menuExtra=[];registrations={};
   menuPublished=false;menuEditOverride=false;
+  regDeadlineISO='';   /* รอบใหม่ = เริ่มจากค่าปิดรับมาตรฐาน (ยังไม่มีตั้งพิเศษ) */
   if(apiEnabled())apiPost('newRound',{rounds:rounds,startDate:startDate,menuPub:0,regDeadline:new Date(regCutoff()).toISOString()}).then(function(res){
     if(!res||res.ok===false)showPopup('⚠️','เริ่มรอบใหม่ไม่สำเร็จ','เชื่อมต่อฐานข้อมูลไม่ได้ กรุณาตรวจอินเทอร์เน็ต<br>แล้วตั้งรอบใหม่อีกครั้ง ก่อนเริ่มใส่เมนู');});
   menuReady=true;menuStep='edit';selDay=0;selMeal='breakfast';render();}

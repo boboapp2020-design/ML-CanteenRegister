@@ -125,13 +125,14 @@ function getState() {
   // Config
   const cfgSh = sheet(SHEET_CONFIG);
   const cfgVals = cfgSh.getDataRange().getValues(); // [ [key,value,desc], ... ]
-  let rounds = 3, startDate = '', menuPub = 0, regGen = 0;
+  let rounds = 3, startDate = '', menuPub = 0, regGen = 0, regDeadline = '';
   for (let i = 1; i < cfgVals.length; i++) {
     const k = cfgVals[i][0];
     if (k === 'rounds') rounds = Number(cfgVals[i][1]) || 3;
     if (k === 'startDate') startDate = isoD(cfgVals[i][1]);
     if (k === 'menuPub') menuPub = Number(cfgVals[i][1]) || 0;
     if (k === 'regGen') regGen = Number(cfgVals[i][1]) || 0;
+    if (k === 'regDeadline') { var _rd = cfgVals[i][1]; regDeadline = (_rd instanceof Date) ? _rd.toISOString() : String(_rd || ''); }
   }
 
   // เมนูรายวัน -> { dayIndex: { mealKey: [items...] } }
@@ -213,7 +214,7 @@ function getState() {
     }
   }
 
-  return { rounds: rounds, startDate: startDate, menuPub: menuPub, regGen: regGen, menu: menu, registrations: registrations, history: history, checkins: checkins };
+  return { rounds: rounds, startDate: startDate, menuPub: menuPub, regGen: regGen, regDeadline: regDeadline, menu: menu, registrations: registrations, history: history, checkins: checkins };
 }
 
 // ---------- WRITE ACTIONS ----------
