@@ -582,12 +582,12 @@ function remindDeadline() {
   if (hm >= REMIND_AFTERNOON && hm < '17:00') { fire('a_' + today, '🍽️ อย่าลืมลงทะเบียนอาหาร', 'ยังเปิดรับลงทะเบียนอยู่ (ปิด ' + dlText + ' น.) รีบลงทะเบียนก่อนหมดเวลา'); return; }
 }
 // ---------- แจ้งเตือน "ก่อนเวลาทานอาหาร" (ทุกวันที่มีเมนู ในช่วงรอบ) ----------
-// เตือนแยกตามมื้อ ตามเวลาที่กำหนด · เฉพาะมื้อที่มีเมนูของวันนั้น · ส่งครั้งเดียวต่อมื้อต่อวัน
-// หน้าต่างเวลา [s, e) กว้าง 10 นาที เผื่อ trigger (ทุก 5 นาที) มาไม่ตรงเป๊ะ
+// เตือนแยกตามมื้อ · เฉพาะมื้อที่มีเมนูของวันนั้น · เตือน "ทุก 15 นาที" ตั้งแต่เวลาเริ่ม (s)
+// จนถึงเวลาปิดของมื้อนั้น (e = หมดเวลาสแกน/รับอาหาร) — เช้า 08:00, เที่ยง 13:10, เย็น 18:30
 var MEAL_REMIND = [
-  { key: 'breakfast', s: '07:30', e: '07:40', label: 'อาหารเช้า' },
-  { key: 'lunch',     s: '11:30', e: '11:40', label: 'อาหารกลางวัน' },
-  { key: 'dinner',    s: '16:30', e: '16:40', label: 'อาหารเย็น' }
+  { key: 'breakfast', s: '07:30', e: '08:00', label: 'อาหารเช้า' },
+  { key: 'lunch',     s: '11:30', e: '13:10', label: 'อาหารกลางวัน' },
+  { key: 'dinner',    s: '16:30', e: '18:30', label: 'อาหารเย็น' }
 ];
 function _menuItemsFor_(menuVals, dayIndex, mealKey) {
   for (var i = 1; i < menuVals.length; i++) {
@@ -609,9 +609,12 @@ function remindMeals_(startDate, rounds) {
   var props = PropertiesService.getScriptProperties();
   for (var i = 0; i < MEAL_REMIND.length; i++) {
     var m = MEAL_REMIND[i];
-    if (!(hm >= m.s && hm < m.e)) continue;              // ยังไม่ถึงหน้าต่างเวลาของมื้อนี้
-    var k = 'meal_' + today + '_' + m.key;
-    if (props.getProperty(k) === '1') continue;          // มื้อนี้ของวันนี้เตือนไปแล้ว
+    if (!(hm >= m.s && hm <= m.e)) continue;             // อยู่ในช่วง [เริ่ม, หมดเวลากิน] ของมื้อนี้
+    // dedup ตามช่วง 15 นาที (เช่น 11:30, 11:45, 12:00 ...) — trigger เดินทุก 5 นาที ส่งช่วงละครั้ง
+    var mm = Number(Utilities.formatDate(new Date(), 'Asia/Bangkok', 'mm'));
+    var bkt = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'HH') + '_' + Math.floor(mm / 15);
+    var k = 'meal_' + today + '_' + m.key + '_' + bkt;
+    if (props.getProperty(k) === '1') continue;          // ช่วง 15 นาทีนี้ของมื้อนี้เตือนไปแล้ว
     var items = _menuItemsFor_(menuVals, dayIndex, m.key);
     if (!items.length) continue;                         // ไม่มีเมนูมื้อนี้ = ไม่เตือน
     var names = items.map(function (x) { return x.name; }).join(' / ');
