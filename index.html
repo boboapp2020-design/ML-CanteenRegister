@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>แอปลงทะเบียนรับประทานอาหารที่โรงครัว · มิตรลาว</title>
 <meta name="theme-color" content="#062F6E">
+<meta name="description" content="ระบบลงทะเบียนรับประทานอาหารที่โรงครัว บริษัท น้ำตาลมิตรลาว จำกัด">
+<meta property="og:title" content="ลงทะเบียนอาหารโรงครัว · มิตรลาว">
+<meta property="og:description" content="ระบบลงทะเบียนรับประทานอาหารที่โรงครัว บริษัท น้ำตาลมิตรลาว จำกัด">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://boboapp2020-design.github.io/ML-CanteenRegister/icon-512.png">
 <meta name="color-scheme" content="only light">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -227,13 +232,13 @@ OneSignalDeferred.push(async function(OneSignal){
 @keyframes splashShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 </style>
 <div class="shell">
-  <div class="demo-head"><h1>แอปลงทะเบียนรับประทานอาหารที่โรงครัว</h1><p>บริษัท น้ำตาลมิตรลาว จำกัด · Demo (ข้อมูลพนักงานจริง)</p></div>
+  <div class="demo-head"><h1>แอปลงทะเบียนรับประทานอาหารที่โรงครัว</h1><p>บริษัท น้ำตาลมิตรลาว จำกัด</p></div>
   <div class="stage"><div class="phone"><div class="screen">
     <div class="hdr" id="hdr"></div>
     <div class="app-body" id="appBody"></div>
     <div class="toast" id="toast"></div>
   </div></div></div>
-  <div class="caption">* PIN ผู้ดูแลเริ่มต้น = 1234 (เปลี่ยนได้ในเมนูผู้ดูแล) · การลงทะเบียนในเดโมไม่ถูกบันทึกจริง</div>
+  <div class="caption"></div>
 </div>
 <script>//---------------------------------------------------------------------
 //
@@ -2614,7 +2619,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='5.0';
+const APP_VERSION='5.1';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
