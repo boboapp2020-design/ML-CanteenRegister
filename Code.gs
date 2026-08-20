@@ -336,6 +336,7 @@ function newRound(data) {
     clearDataRows(regSh);
     saveConfig(data);
     bumpRegGen();   // รอบใหม่ = รุ่นข้อมูลใหม่ ทุกเครื่องลงทะเบียนใหม่ได้
+    _cleanReminderProps_();   // ล้าง key กันเตือนซ้ำของรอบเก่า กัน Script Properties ล้น
     return { ok: true };
   } finally {
     lock.releaseLock();
@@ -630,3 +631,18 @@ function setupReminderTrigger() {
   ScriptApp.newTrigger('remindDeadline').timeBased().everyMinutes(5).create();
   return 'ติดตั้งตัวจับเวลาแล้ว — เช็คทุก 5 นาที (เตือน 07:00, 16:45 และชั่วโมงสุดท้ายทุก 10 นาที)';
 }
+// ล้างเฉพาะ key "กันเตือนซ้ำ" (rem_/meal_/dl_sent_) — ไม่แตะ sgen, regGen, ONESIGNAL_REST_KEY
+// เรียกตอนขึ้นรอบใหม่ เพื่อไม่ให้ Script Properties สะสมจนเต็ม (500KB)
+function _cleanReminderProps_() {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var all = props.getProperties();
+    Object.keys(all).forEach(function (k) {
+      if (k.indexOf('rem_') === 0 || k.indexOf('meal_') === 0 || k.indexOf('dl_sent_') === 0) {
+        try { props.deleteProperty(k); } catch (e) {}
+      }
+    });
+  } catch (e) {}
+}
+// รันเองได้จาก Editor เพื่อล้าง key เตือนเก่าทันที (เผื่อสะสมไว้เยอะก่อนมีฟังก์ชันนี้)
+function cleanReminderPropsNow() { _cleanReminderProps_(); return 'ล้าง key กันเตือนซ้ำเก่าแล้ว'; }
