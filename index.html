@@ -2619,7 +2619,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='5.3';
+const APP_VERSION='5.4';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -3213,7 +3213,29 @@ function applyEditRound(){
   if(selDay>=menuDays.length)selDay=menuDays.length-1;
   menuStep='edit';toast('แก้วัน/จำนวนวันแล้ว · เมนูเดิมอยู่ครบ ✓');render();
 }
-function confirmSetup(){rebuildDays();
+/* กันพลาด: ถ้ามีข้อมูลรอบเดิม (เมนู/ลงทะเบียน) ที่จะถูกล้าง ต้องพิมพ์ "ล้าง" + PIN ยืนยันก่อน */
+function askWipeConfirm(cb){
+  var o=document.createElement('div');o.className='modal-ov';
+  o.innerHTML=`<div class="modal-bx"><div class="mi">⚠️</div><div class="mt" style="color:var(--neg)">เริ่มรอบใหม่ = ล้างข้อมูลรอบนี้</div><div class="mm">เมนูและการลงทะเบียนของรอบปัจจุบันจะถูกย้ายไปประวัติ แล้วเริ่มรอบใหม่ว่าง ๆ<br><b>ถ้าแค่อยากแก้วัน/จำนวนวัน กดยกเลิก แล้วใช้ปุ่ม "แก้วัน" แทน (เมนูไม่หาย)</b><br><br>พิมพ์คำว่า <b>ล้าง</b> และใส่ PIN เพื่อยืนยัน</div>
+  <input class="txt" id="wipeWord" placeholder="พิมพ์: ล้าง" autocomplete="off" style="text-align:center;margin-bottom:8px">
+  <input class="txt" id="wipePin" type="password" inputmode="numeric" placeholder="PIN ผู้ดูแล" style="text-align:center;margin-bottom:14px">
+  <div style="display:flex;gap:10px"><button class="btn btn-ghost" style="margin:0;flex:1">ยกเลิก</button><button class="btn btn-brand" style="margin:0;flex:1;background:var(--neg)">ยืนยันล้าง</button></div></div>`;
+  var b=o.querySelectorAll('button');
+  b[0].onclick=function(){o.remove();};
+  b[1].onclick=function(){var w=(document.getElementById('wipeWord').value||'').trim();var p=(document.getElementById('wipePin').value||'').trim();
+    if(w!=='ล้าง'){toast('พิมพ์คำว่า "ล้าง" ให้ถูกต้อง');return;}
+    if(p!==getPIN()){toast('PIN ไม่ถูกต้อง');return;}
+    o.remove();cb();};
+  o.onclick=function(e){if(e.target===o)o.remove();};
+  document.querySelector('.screen').appendChild(o);
+  setTimeout(function(){var el=document.getElementById('wipeWord');if(el)el.focus();},60);
+}
+function confirmSetup(skipGuard){
+  if(!skipGuard){
+    var hasData=menuHasFood()||Object.keys(registrations||{}).length>0;
+    if(hasData){askWipeConfirm(function(){confirmSetup(true);});return;}
+  }
+  rebuildDays();
   if(pendingSnap){histRounds.push(pendingSnap);pendingSnap=null;}
   snapCaptured=false;
   menuDays=emptyMenuDays();menuExtra=[];registrations={};
