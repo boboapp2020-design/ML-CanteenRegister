@@ -66,13 +66,15 @@ function isoD(v) {
 // ---------- SERVER CACHE (ทำให้ตอบไวขึ้นมาก) ----------
 // หลักการ: เก็บ "เลขรุ่นข้อมูล" (sgen) ไว้ — ทุกครั้งที่มีการเขียน เลขนี้ +1
 // ผล state ของแต่ละรุ่นถูกแคชแยกคีย์ตามเลขรุ่น การอ่านหลังการเขียนจึงพลาดแคชเก่าเสมอ (ไม่มีข้อมูลค้าง)
-var CACHE_TTL = 21600; // 6 ชม. (ค่าสูงสุดของ Google)
+var CACHE_TTL = 21600; // 6 ชม. — TTL ของ "เนื้อ state" (คีย์ตามเลขรุ่น จึงไม่ค้างถ้าเลขรุ่นเดิน)
+var SGEN_TTL = 30;     // TTL สั้นของ "เลขรุ่น sgen" — กันแคชเลขรุ่นค้างยาว: ถ้าค้างจะหายเองใน 30 วิ
+                       // (แหล่งจริงของ sgen คือ Script Properties ซึ่งเดินเสมอ; cache แค่ช่วยลดการอ่าน)
 function _cache() { return CacheService.getScriptCache(); }
 function _getGen() {
   var c = _cache(); var g = c.get('sgen');
   if (g === null || g === undefined) {
     g = PropertiesService.getScriptProperties().getProperty('sgen') || '0';
-    try { c.put('sgen', g, CACHE_TTL); } catch (e) {}
+    try { c.put('sgen', g, SGEN_TTL); } catch (e) {}
   }
   return g;
 }
@@ -81,7 +83,7 @@ function _bumpGen() {
     var p = PropertiesService.getScriptProperties();
     var g = String((Number(p.getProperty('sgen')) || 0) + 1);
     p.setProperty('sgen', g);
-    _cache().put('sgen', g, CACHE_TTL);
+    _cache().put('sgen', g, SGEN_TTL);
   } catch (e) {}
 }
 // state อาจใหญ่กว่า 100KB (ลิมิตต่อคีย์ของ CacheService) จึงหั่นเป็นท่อนละ 90,000 ตัวอักษร
