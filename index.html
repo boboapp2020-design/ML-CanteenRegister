@@ -2619,7 +2619,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='5.4';
+const APP_VERSION='5.5';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -2805,6 +2805,7 @@ function applyStateFromAPI(st){rounds=st.rounds||rounds;startDate=isoDateStr(st.
     const hr={};Object.keys(h.registrations||{}).forEach(c=>{hr[c]={};Object.keys(h.registrations[c]).forEach(di=>{hr[c][Number(di)]=h.registrations[c][di];});});
     histRounds.push({startDate:h.startDate,rounds:h.rounds,menuDays:days,registrations:hr});});
   checkins={};Object.keys(st.checkins||{}).forEach(d=>{const k=isoDateStr(d);if(k)checkins[k]=st.checkins[d];});
+  serverFeedback=Array.isArray(st.feedback)?st.feedback:[];
   menuExtra=Object.keys(_xtra).sort().map(function(k){return _xtra[k];});
   saveStateCache(st);
 }
@@ -2875,8 +2876,8 @@ window.addEventListener('popstate',function(e){
   try{history.pushState({d:navStack.length},'');}catch(e2){}
   render();
 });
-function render(){const map={home:renderHome,empSearch:renderEmpSearch,adminPin:renderAdminPin,adminPinSet:renderAdminPinSet,adminHub:renderAdminHub,adminMenu:renderAdminMenu,adminDash:renderAdminDash,adminData:renderAdminData,adminEmp:renderAdminEmp,adminQR:renderAdminQR,adminDeadline:renderAdminDeadline,checkin:renderCheckin,todayMenu:renderTodayMenu,appMenu:renderAppMenu,userCode:renderUserCode,userReg:renderUserReg,userDone:renderUserDone,regClosed:renderRegClosed,fbCode:renderFbCode,fbForm:renderFbForm,fbDone:renderFbDone,userHelp:renderUserHelp};setTop();body().className='app-body'+(screen==='home'?' center':'');(map[screen]||renderHome)();}
-function setTop(){const titles={empSearch:'ค้นหาพนักงาน',adminPin:'เข้าสู่ระบบผู้ดูแล',adminPinSet:'ตั้งค่า PIN',adminHub:'ผู้ดูแลระบบ',adminMenu:'จัดเมนู',adminDash:'แดชบอร์ด',adminData:'ข้อมูล & ส่งออก',adminEmp:'จัดการพนักงาน',adminQR:'QR เช็คอิน',checkin:'เช็คอินโรงอาหาร',todayMenu:'เมนูอาหาร',appMenu:'เกี่ยวกับแอป',userCode:'ลงทะเบียน',userReg:'ลงทะเบียน',userDone:'สำเร็จ',regClosed:'ลงทะเบียน',fbCode:'ข้อเสนอแนะ',fbForm:'ให้คะแนน & ข้อเสนอแนะ',fbDone:'ขอบคุณ',userHelp:'วิธีใช้งาน'};
+function render(){const map={home:renderHome,empSearch:renderEmpSearch,adminPin:renderAdminPin,adminPinSet:renderAdminPinSet,adminHub:renderAdminHub,adminMenu:renderAdminMenu,adminDash:renderAdminDash,adminData:renderAdminData,adminEmp:renderAdminEmp,adminQR:renderAdminQR,adminDeadline:renderAdminDeadline,adminFeedback:renderAdminFeedback,checkin:renderCheckin,todayMenu:renderTodayMenu,appMenu:renderAppMenu,userCode:renderUserCode,userReg:renderUserReg,userDone:renderUserDone,regClosed:renderRegClosed,fbCode:renderFbCode,fbForm:renderFbForm,fbDone:renderFbDone,userHelp:renderUserHelp};setTop();body().className='app-body'+(screen==='home'?' center':'');(map[screen]||renderHome)();}
+function setTop(){const titles={empSearch:'ค้นหาพนักงาน',adminPin:'เข้าสู่ระบบผู้ดูแล',adminPinSet:'ตั้งค่า PIN',adminHub:'ผู้ดูแลระบบ',adminMenu:'จัดเมนู',adminDash:'แดชบอร์ด',adminData:'ข้อมูล & ส่งออก',adminEmp:'จัดการพนักงาน',adminQR:'QR เช็คอิน',adminFeedback:'ข้อเสนอแนะ',adminDeadline:'ตั้งเวลาปิดรับ',checkin:'เช็คอินโรงอาหาร',todayMenu:'เมนูอาหาร',appMenu:'เกี่ยวกับแอป',userCode:'ลงทะเบียน',userReg:'ลงทะเบียน',userDone:'สำเร็จ',regClosed:'ลงทะเบียน',fbCode:'ข้อเสนอแนะ',fbForm:'ให้คะแนน & ข้อเสนอแนะ',fbDone:'ขอบคุณ',userHelp:'วิธีใช้งาน'};
   const backTo={empSearch:'home',adminPin:'home',adminPinSet:'adminHub',adminHub:'home',adminMenu:'adminHub',adminDash:'adminHub',adminData:'adminHub',adminEmp:'adminHub',adminQR:'adminHub',checkin:'home',todayMenu:'home',appMenu:'home',userCode:'home',userReg:'home',userDone:'home',regClosed:'home',fbCode:'home',fbForm:'home',fbDone:'home',userHelp:'home'};
   if(screen==='home'){hdrEl().className='hdr';hdrEl().innerHTML=`<div class="bm"><img src="${LOGO_CO}"></div><div><div class="bt">โรงครัวมิตรลาว</div><div class="bs">ลงทะเบียนรับประทานอาหาร</div></div><button class="nav" style="margin-left:auto;font-size:21px" onclick="go('appMenu')">☰</button>`;return;}
   hdrEl().className='hdr hdr-bottom';hdrEl().innerHTML=`<button class="nav" onclick="go('home')">⌂</button><span class="title" style="margin:0 auto">${titles[screen]||''}</span><button class="nav" onclick="smartBack()">‹</button>`;}
@@ -3032,6 +3033,7 @@ function renderAdminHub(){body().innerHTML=`<div class="note" style="text-align:
   <button class="hub-btn hub-primary" onclick="selDay=0;selMeal='breakfast';menuStep=menuReady?'edit':'round';go('adminMenu')"><span class="ic">🍽️</span><span>จัดเมนู<small>เพิ่มเมนูรายวัน แยกคาบ + แนบรูป · กดยืนยันเพื่อเผยแพร่ให้พนักงาน</small></span></button>
   <button class="hub-btn" onclick="dashTab='overview';go('adminDash')"><span class="ic ic-blue">📊</span><span>แดชบอร์ด<small>เมนูฮิต · วัน · คาบ · แผนก · รายคน</small></span></button>
   <button class="hub-btn" onclick="go('adminData')"><span class="ic ic-amber">📋</span><span>ข้อมูล & ส่งออก Excel<small>ดูรายคน · แชร์เป็นไฟล์ Excel</small></span></button>
+  <button class="hub-btn" onclick="go('adminFeedback')"><span class="ic ic-amber">💬</span><span>ดูข้อเสนอแนะ / ผลประเมิน<small>ดาวเฉลี่ย + ความเห็นพนักงาน (ไม่แสดงรหัส/ชื่อ)</small></span></button>
   <button class="hub-btn" onclick="empMgmtMode='add';empDelQ='';empFormReset();go('adminEmp')"><span class="ic ic-blue">👥</span><span>จัดการพนักงาน<small>เพิ่ม / ลบ พนักงานในฐานข้อมูล (ยืนยันด้วย PIN)</small></span></button>
   <button class="hub-btn" onclick="go('adminQR')"><span class="ic ic-amber">🧾</span><span>QR เช็คอินหน้าโรงอาหาร<small>พิมพ์ QR ให้พนักงานสแกนยืนยัน "มาทานจริง"</small></span></button>
   <button class="hub-btn" onclick="go('adminDeadline')"><span class="ic ic-blue">⏰</span><span>เปิด/ขยายเวลาลงทะเบียน (พิเศษ)<small>เลือกวัน–เวลาปิดรับเอง แทนค่าที่ระบบตั้งไว้</small></span></button>
@@ -3404,7 +3406,35 @@ function renderFbCode(){body().innerHTML=`<div class="card" style="text-align:ce
 function keyFb(k){if(k==='del')fbCode=fbCode.slice(0,-1);else if(k==='ok'){const e=employees.find(x=>x.code===fbCode);if(!e){toast('ไม่พบรหัสนี้');return;}if(fbDoneHas(e.code)){showPopup('💬','ท่านได้ให้ข้อเสนอแนะรอบนี้ไปแล้ว','1 รหัสพนักงาน ให้ข้อเสนอแนะได้ 1 ครั้งต่อรอบ<br>ขอบคุณสำหรับความเห็นครับ 🙏');return;}fbUser=e;fbRatings={};fbComment='';go('fbForm');return;}else if(fbCode.length<6)fbCode+=k;const d=document.getElementById('codeDisp');if(d)d.textContent=fbCode||'—';}
 function renderFbForm(){body().innerHTML=`<div class="hero" style="background:linear-gradient(135deg,#f59e0b,#d97706)"><div class="n">${fbUser.name}</div><div class="meta">รหัส ${fbUser.code} · ${fbUser.dept}</div></div><div class="hint" style="background:var(--amber-l);color:#92400e">⭐ ให้คะแนน 1–5 ดาว (1 = น้อย, 5 = มาก) · ต้องให้ครบทุกข้อ</div><div class="card">${FB_Q.map(q=>`<div class="fb-q"><div class="fb-qh">${q.emoji} ${q.label}</div><div class="stars">${[1,2,3,4,5].map(i=>`<span class="star ${(fbRatings[q.k]||0)>=i?'on':''}" onclick="setRating('${q.k}',${i})">★</span>`).join('')}</div><div class="fb-scale">${fbRatings[q.k]?ratingWord(fbRatings[q.k]):'แตะดาวเพื่อให้คะแนน'}</div></div>`).join('')}</div><div class="card"><label class="fld" style="margin-top:0">ข้อเสนอแนะเพิ่มเติม (ไม่บังคับ)</label><textarea class="txt" placeholder="เช่น อยากให้เพิ่มเมนู / ปรับปรุงเรื่อง..." oninput="fbComment=this.value">${fbComment}</textarea></div><button class="btn btn-brand" onclick="submitFb()">ส่งข้อเสนอแนะ</button>`;}
 function setRating(k,v){fbRatings[k]=v;render();}
-function submitFb(){for(const q of FB_Q)if(!fbRatings[q.k]){toast('กรุณาให้คะแนนให้ครบทุกข้อ');return;}saveFeedback({code:fbUser.code,name:fbUser.name,dept:fbUser.dept,unit:fbUser.unit,ratings:{...fbRatings},comment:fbComment,ts:nowStr()});fbDoneMark(fbUser.code);go('fbDone');}
+function submitFb(){for(const q of FB_Q)if(!fbRatings[q.k]){toast('กรุณาให้คะแนนให้ครบทุกข้อ');return;}
+  saveFeedback({code:fbUser.code,name:fbUser.name,dept:fbUser.dept,unit:fbUser.unit,ratings:{...fbRatings},comment:fbComment,ts:nowStr()});
+  fbDoneMark(fbUser.code);
+  /* ส่งขึ้นเซิร์ฟเวอร์เพื่อให้แอดมินดูรวมได้ (เก็บ code ฝั่ง server กันซ้ำ แต่หน้าแอดมินไม่โชว์ code) */
+  apiPost('saveFeedback',{roundId:roundKey(),code:fbUser.code,unit:fbUser.unit,ratings:{...fbRatings},comment:fbComment,ts:nowStr()});
+  go('fbDone');}
+/* ===== ผลประเมิน/ข้อเสนอแนะ จากเซิร์ฟเวอร์ (สำหรับแอดมินดู · ไม่มีรหัส/ชื่อ) ===== */
+let serverFeedback=[];
+function escHtml(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function fbStarRow(avg){var full=Math.round(avg||0);var s='';for(var i=1;i<=5;i++)s+='<span style="color:'+(i<=full?'#f59e0b':'#e2e8f0')+'">★</span>';return s;}
+function renderAdminFeedback(){
+  var cur=roundKey();var all=serverFeedback||[];var fb=all.filter(function(x){return x.roundId===cur;});
+  var back='<button class="btn btn-ghost" onclick="go(\'adminHub\')">กลับเมนูผู้ดูแล</button>';
+  if(!fb.length){body().innerHTML='<div class="hint">💬 ผลประเมิน & ข้อเสนอแนะ (รอบนี้)</div><div class="card" style="text-align:center;padding:30px"><div style="font-size:44px">💬</div><div style="color:var(--muted);margin-top:8px">ยังไม่มีข้อเสนอแนะในรอบนี้</div>'+(all.length?'<div class="note" style="margin-top:6px">ทุกรอบรวม '+all.length+' รายการ</div>':'')+'</div>'+back;return;}
+  var n=fb.length,sum={};FB_Q.forEach(function(q){sum[q.k]=0;});
+  fb.forEach(function(x){FB_Q.forEach(function(q){sum[q.k]+=Number((x.ratings||{})[q.k])||0;});});
+  var allSum=0;FB_Q.forEach(function(q){allSum+=sum[q.k];});var overall=allSum/(n*FB_Q.length);
+  var cat=FB_Q.map(function(q){var a=sum[q.k]/n;return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)"><span style="flex:1;font-size:13.5px">'+q.emoji+' '+q.label+'</span><span style="font-size:15px;letter-spacing:1px">'+fbStarRow(a)+'</span><span style="font-weight:800;width:32px;text-align:right;color:var(--amber)">'+a.toFixed(1)+'</span></div>';}).join('');
+  var comments=fb.filter(function(x){return (x.comment||'').trim();});
+  var cList=comments.length?comments.map(function(x){return '<div class="card" style="margin:8px 0;padding:11px 13px"><div style="font-size:14px;line-height:1.65">“'+escHtml(x.comment)+'”</div><div style="color:var(--muted);font-size:11.5px;margin-top:6px">🕒 '+escHtml(x.ts||'')+'</div></div>';}).join(''):'<div class="note" style="padding:16px">— ไม่มีข้อความเพิ่มเติม —</div>';
+  body().innerHTML='<div class="hint">💬 ผลประเมิน & ข้อเสนอแนะ — รอบนี้ ('+periodLabel()+') · แสดงแบบไม่ระบุตัวตน</div>'
+    +'<div class="card"><div style="display:flex;align-items:center;gap:14px;margin-bottom:8px"><div style="font-size:36px;font-weight:800;color:var(--amber);line-height:1">'+overall.toFixed(1)+'</div><div><div style="font-size:16px;letter-spacing:1px">'+fbStarRow(overall)+'</div><div style="color:var(--muted);font-size:12.5px;margin-top:2px">คะแนนเฉลี่ยรวม · จากผู้ประเมิน '+n+' คน</div></div></div>'+cat+'</div>'
+    +'<div class="sec-title" style="margin-top:14px;font-weight:700;color:var(--info);padding:0 2px">ข้อเสนอแนะเพิ่มเติม ('+comments.length+')</div>'+cList
+    +'<button class="btn btn-ghost" style="margin-top:12px" onclick="exportFeedbackServer()">📤 ส่งออกข้อเสนอแนะ (ไม่มีรหัส)</button>'+back;
+}
+function exportFeedbackServer(){var cur=roundKey();var fb=(serverFeedback||[]).filter(function(x){return x.roundId===cur;});if(!fb.length){toast('ยังไม่มีข้อเสนอแนะ');return;}
+  var head=['เวลา','รสชาติ','ความสะอาด','ปริมาณ','ความหลากหลาย','ข้อเสนอแนะเพิ่มเติม'];var lines=[head.join(',')];
+  fb.forEach(function(r){var t=r.ratings||{};lines.push([r.ts,t.taste,t.clean,t.portion,t.variety,r.comment||''].map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(','));});
+  askExport('feedback-'+cur.replace(/[|]/g,'_')+'.csv',lines,'ข้อเสนอแนะ (ไม่มีรหัส)');}
 function renderFbDone(){body().innerHTML=`<div style="text-align:center"><div class="done-check" style="background:var(--amber-l);color:var(--amber)">★</div><h2 style="font-size:22px;margin:0">ขอบคุณสำหรับข้อเสนอแนะ</h2><p style="color:var(--muted);margin:6px 0 16px">ความเห็นของคุณช่วยพัฒนาโรงครัวให้ดีขึ้น</p></div><button class="btn btn-brand" onclick="go('home')">กลับหน้าแรก</button>`;}
 function exportFeedback(){const fb=feedbackAll();if(!fb.length){toast('ยังไม่มีข้อเสนอแนะ');return;}const head=['เวลา','รหัส','ชื่อ','หน่วยงาน','หน่วย','รสชาติ','ความสะอาด','ปริมาณ','ความหลากหลาย','ข้อเสนอแนะเพิ่มเติม'];const lines=[head.join(',')];fb.forEach(r=>lines.push([r.ts,r.code,r.name,r.dept,r.unit||'',r.ratings.taste,r.ratings.clean,r.ratings.portion,r.ratings.variety,r.comment||''].map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')));askExport('canteen-feedback.csv',lines,'ไฟล์ข้อเสนอแนะ');}
 function csvBlob(lines){return new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});}

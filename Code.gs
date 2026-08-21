@@ -28,6 +28,7 @@ const SHEET_REG = 'การลงทะเบียน';
 const SHEET_HMENU = 'ประวัติเมนู';
 const SHEET_HREG = 'ประวัติลงทะเบียน';
 const SHEET_CI = 'เช็คอิน';
+const SHEET_FB = 'ข้อเสนอแนะ';
 
 // ช่วงเวลาสแกน QR เช็คอิน (เวลาไทย) — ต้องตรงกับในแอป
 const CI_WINDOWS = {
@@ -214,7 +215,24 @@ function getState() {
     }
   }
 
-  return { rounds: rounds, startDate: startDate, menuPub: menuPub, regGen: regGen, regDeadline: regDeadline, menu: menu, registrations: registrations, history: history, checkins: checkins };
+  // ข้อเสนอแนะ/ผลประเมิน -> [ { roundId, ts, unit, ratings, comment } ]  (ไม่ส่ง code/ชื่อ ออกไป เพื่อความเป็นส่วนตัว)
+  var feedback = [];
+  var fbSh = SS.getSheetByName(SHEET_FB);
+  if (fbSh) {
+    var fv = fbSh.getDataRange().getValues(); // roundId,ts,code,unit,taste,clean,portion,variety,comment
+    for (var f = 1; f < fv.length; f++) {
+      if ((fv[f][0] === '' || fv[f][0] === null) && (fv[f][1] === '' || fv[f][1] === null)) continue;
+      var tt = fv[f][1];
+      var tsStr = (tt instanceof Date) ? Utilities.formatDate(tt, 'Asia/Bangkok', 'yyyy-MM-dd HH:mm') : String(tt || '');
+      feedback.push({
+        roundId: String(fv[f][0]), ts: tsStr, unit: String(fv[f][3] || ''),
+        ratings: { taste: Number(fv[f][4]) || 0, clean: Number(fv[f][5]) || 0, portion: Number(fv[f][6]) || 0, variety: Number(fv[f][7]) || 0 },
+        comment: String(fv[f][8] || '')
+      });
+    }
+  }
+
+  return { rounds: rounds, startDate: startDate, menuPub: menuPub, regGen: regGen, regDeadline: regDeadline, menu: menu, registrations: registrations, history: history, checkins: checkins, feedback: feedback };
 }
 
 // ---------- WRITE ACTIONS ----------
@@ -233,6 +251,7 @@ function doPost(e) {
     else if (action === 'checkin') out = checkin(data);
     else if (action === 'clearRegistrations') out = clearRegistrations(data);
     else if (action === 'restoreRound') out = restoreRound(data);
+    else if (action === 'saveFeedback') out = saveFeedback(data);
     if (out === null) return jsonOut({ ok: false, error: 'unknown action: ' + action });
     _bumpGen(); // ข้อมูลเปลี่ยน → เลื่อนรุ่นแคช การอ่านครั้งถัดไปจะได้ข้อมูลใหม่
     return jsonOut(out);
@@ -279,6 +298,29 @@ function restoreRound(data) {
     // ----- ตั้ง Config เป็นรอบนี้ + เผยแพร่ -----
     saveConfig({ rounds: rounds, startDate: startDate, menuPub: 1 });
     return { ok: true, menuRows: mOut.length, regRows: rOut.length, people: (function () { var s = {}; rOut.forEach(function (r) { s[r[0]] = 1; }); return Object.keys(s).length; })() };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// บันทึกข้อเสนอแนะ/ผลประเมิน (เก็บ code ไว้กันซ้ำ 1 คน/รอบ แต่ getState จะไม่ส่ง code ออก)
+// data: { roundId, code, unit, ratings:{taste,clean,portion,variety}, comment, ts }
+function saveFeedback(data) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sh = getOrCreateSheet(SHEET_FB, ['roundId', 'ts', 'code', 'unit', 'taste', 'clean', 'portion', 'variety', 'comment']);
+    var r = data.ratings || {};
+    var row = [String(data.roundId || ''), String(data.ts || ''), String(data.code || ''), String(data.unit || ''),
+      Number(r.taste) || '', Number(r.clean) || '', Number(r.portion) || '', Number(r.variety) || '', String(data.comment || '')];
+    var vals = sh.getDataRange().getValues();
+    var foundRow = -1;
+    for (var i = 1; i < vals.length; i++) {
+      if (String(vals[i][0]) === String(data.roundId) && String(vals[i][2]) === String(data.code)) { foundRow = i + 1; break; }
+    }
+    if (foundRow > 0) sh.getRange(foundRow, 1, 1, 9).setValues([row]);   // 1 คน/รอบ — แก้ทับของเดิม
+    else sh.appendRow(row);
+    return { ok: true };
   } finally {
     lock.releaseLock();
   }
