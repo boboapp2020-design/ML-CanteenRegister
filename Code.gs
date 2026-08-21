@@ -232,11 +232,55 @@ function doPost(e) {
     else if (action === 'newRound') out = newRound(data);
     else if (action === 'checkin') out = checkin(data);
     else if (action === 'clearRegistrations') out = clearRegistrations(data);
+    else if (action === 'restoreRound') out = restoreRound(data);
     if (out === null) return jsonOut({ ok: false, error: 'unknown action: ' + action });
     _bumpGen(); // ข้อมูลเปลี่ยน → เลื่อนรุ่นแคช การอ่านครั้งถัดไปจะได้ข้อมูลใหม่
     return jsonOut(out);
   } catch (err) {
     return jsonOut({ ok: false, error: String(err) });
+  }
+}
+
+// กู้คืนรอบจากประวัติกลับเข้ารอบปัจจุบัน (เขียนกลับทีเดียวรวดเดียว เร็ว+ครบ)
+// data: { roundId: "yyyy-MM-dd|N" }  — คัดลอกเมนู+ลงทะเบียนของ roundId นั้นทับรอบปัจจุบัน
+function restoreRound(data) {
+  var roundId = String(data.roundId || '');
+  if (!roundId) return { ok: false, error: 'no roundId' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var parts = roundId.split('|');
+    var startDate = parts[0];
+    var rounds = Number(parts[1]) || 0;
+    // ----- เมนู: อ่านจากประวัติเมนู เขียนทับเมนูปัจจุบัน -----
+    var menuSh = sheet(SHEET_MENU);
+    clearDataRows(menuSh);
+    var mOut = [];
+    var hm = SS.getSheetByName(SHEET_HMENU);
+    if (hm) {
+      var hv = hm.getDataRange().getValues(); // roundId,dayIndex,dateISO,mealKey,itemsJson
+      for (var i = 1; i < hv.length; i++) {
+        if (String(hv[i][0]) === roundId) mOut.push([hv[i][1], hv[i][2], hv[i][3], hv[i][4]]);
+      }
+    }
+    if (mOut.length) menuSh.getRange(2, 1, mOut.length, 4).setValues(mOut);
+    // ----- ลงทะเบียน: อ่านจากประวัติลงทะเบียน เขียนทับรอบปัจจุบัน -----
+    var regSh = sheet(SHEET_REG);
+    clearDataRows(regSh);
+    var rOut = [];
+    var hr = SS.getSheetByName(SHEET_HREG);
+    if (hr) {
+      var rv = hr.getDataRange().getValues(); // roundId,code,dayIndex,breakfast,lunch,dinner,updatedAt
+      for (var j = 1; j < rv.length; j++) {
+        if (String(rv[j][0]) === roundId) rOut.push([rv[j][1], rv[j][2], rv[j][3], rv[j][4], rv[j][5], rv[j][6]]);
+      }
+    }
+    if (rOut.length) regSh.getRange(2, 1, rOut.length, 6).setValues(rOut);
+    // ----- ตั้ง Config เป็นรอบนี้ + เผยแพร่ -----
+    saveConfig({ rounds: rounds, startDate: startDate, menuPub: 1 });
+    return { ok: true, menuRows: mOut.length, regRows: rOut.length, people: (function () { var s = {}; rOut.forEach(function (r) { s[r[0]] = 1; }); return Object.keys(s).length; })() };
+  } finally {
+    lock.releaseLock();
   }
 }
 
