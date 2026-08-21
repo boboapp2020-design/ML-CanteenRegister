@@ -242,6 +242,8 @@ function doPost(e) {
     const action = data.action;
     // ส่งแจ้งเตือน push (ไม่เปลี่ยนข้อมูล จึงไม่ต้องเลื่อนรุ่นแคช) — ตอบกลับทันที
     if (action === 'pushNotify') return jsonOut(osPush_(data.heading, data.content, data.url));
+    if (action === 'getFeedback') return jsonOut(getFeedback(data));   // อ่านข้อเสนอแนะตรงจากชีต (ไม่ผ่านแคช)
+    if (action === 'bustCache') return jsonOut(bustCache());           // ล้างแคช state ที่ค้าง
     var out = null;
     if (action === 'saveConfig') out = saveConfig(data);
     else if (action === 'saveMenuDay') out = saveMenuDay(data);
@@ -302,6 +304,47 @@ function restoreRound(data) {
     lock.releaseLock();
   }
 }
+
+// อ่านข้อเสนอแนะตรงจากชีต (ไม่ผ่านแคช getState) — คืนโดยไม่มี code/ชื่อ
+function getFeedback(data) {
+  var roundId = (data && data.roundId) ? String(data.roundId) : '';
+  var arr = [];
+  var fbSh = SS.getSheetByName(SHEET_FB);
+  if (fbSh) {
+    var fv = fbSh.getDataRange().getValues(); // roundId,ts,code,unit,taste,clean,portion,variety,comment
+    for (var f = 1; f < fv.length; f++) {
+      if ((fv[f][0] === '' || fv[f][0] === null) && (fv[f][1] === '' || fv[f][1] === null)) continue;
+      if (roundId && String(fv[f][0]) !== roundId) continue;
+      var tt = fv[f][1];
+      var ts = (tt instanceof Date) ? Utilities.formatDate(tt, 'Asia/Bangkok', 'yyyy-MM-dd HH:mm') : String(tt || '');
+      arr.push({ roundId: String(fv[f][0]), ts: ts, unit: String(fv[f][3] || ''),
+        ratings: { taste: Number(fv[f][4]) || 0, clean: Number(fv[f][5]) || 0, portion: Number(fv[f][6]) || 0, variety: Number(fv[f][7]) || 0 },
+        comment: String(fv[f][8] || '') });
+    }
+  }
+  return { ok: true, feedback: arr };
+}
+
+// ล้างแคช state ที่ค้าง (แก้อาการ getState เสิร์ฟข้อมูลเก่าเพราะเลขรุ่น sgen หยุดเลื่อน)
+function bustCache() {
+  var out = { ok: true };
+  try {
+    var p = PropertiesService.getScriptProperties();
+    var g = Number(p.getProperty('sgen')) || 0;
+    var c = _cache();
+    var keys = ['sgen'];
+    for (var gg = 0; gg <= g + 2; gg++) { keys.push('st_' + gg + '_n'); for (var i = 0; i < 12; i++) keys.push('st_' + gg + '_' + i); }
+    keys = keys.slice(0, 480);
+    try { c.removeAll(keys); } catch (e) {}
+    var ng = String(g + 1);
+    try { p.setProperty('sgen', ng); } catch (e) {}
+    try { c.put('sgen', ng, CACHE_TTL); } catch (e) {}
+    out.gen = ng;
+  } catch (e) { out.error = String(e); }
+  return out;
+}
+// รันเองจาก Editor เพื่อล้างแคชทันที
+function bustCacheNow() { return bustCache(); }
 
 // บันทึกข้อเสนอแนะ/ผลประเมิน (เก็บ code ไว้กันซ้ำ 1 คน/รอบ แต่ getState จะไม่ส่ง code ออก)
 // data: { roundId, code, unit, ratings:{taste,clean,portion,variety}, comment, ts }
