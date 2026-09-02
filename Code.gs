@@ -410,9 +410,9 @@ function setupMonthlyPurgeTrigger() {
   var t = ScriptApp.getProjectTriggers();
   for (var i = 0; i < t.length; i++) if (t[i].getHandlerFunction() === 'monthlyPurge') ScriptApp.deleteTrigger(t[i]);
   ScriptApp.newTrigger('monthlyPurge').timeBased().onMonthDay(1).atHour(3).create();
-  return 'ตั้งล้างประวัติอัตโนมัติทุกวันที่ 1 (~03:00) แล้ว — เก็บรอบใน 45 วันล่าสุด ลบที่เก่ากว่า';
+  return 'ตั้งล้างประวัติอัตโนมัติทุกวันที่ 1 (~03:00) แล้ว — เก็บรอบใน 30 วันล่าสุด ลบที่เก่ากว่า';
 }
-function monthlyPurge() { var r = purgeHistory({ keepDays: 45 }); _bumpGen(); return r; }
+function monthlyPurge() { var r = purgeHistory({ keepDays: 30 }); _bumpGen(); return r; }
 
 // ล้างเฉพาะข้อมูลการลงทะเบียนของรอบปัจจุบัน (เมนู/Config/ประวัติ ไม่ถูกแตะ)
 function clearRegistrations(data) {
