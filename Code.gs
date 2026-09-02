@@ -255,6 +255,7 @@ function doPost(e) {
     else if (action === 'checkin') out = checkin(data);
     else if (action === 'clearRegistrations') out = clearRegistrations(data);
     else if (action === 'restoreRound') out = restoreRound(data);
+    else if (action === 'purgeHistory') out = purgeHistory(data);
     else if (action === 'saveFeedback') out = saveFeedback(data);
     if (out === null) return jsonOut({ ok: false, error: 'unknown action: ' + action });
     _bumpGen(); // ข้อมูลเปลี่ยน → เลื่อนรุ่นแคช การอ่านครั้งถัดไปจะได้ข้อมูลใหม่
@@ -370,6 +371,48 @@ function saveFeedback(data) {
     lock.releaseLock();
   }
 }
+
+// ล้างประวัติรอบเก่า (ประวัติเมนู + ประวัติลงทะเบียน) เพื่อให้ state เล็ก/เร็ว — รอบปัจจุบันไม่ถูกแตะ
+// data: { keepDays }  0/ไม่ส่ง = ลบประวัติทั้งหมด · เช่น 30 = เก็บเฉพาะรอบที่เริ่มภายใน 30 วันล่าสุด
+function purgeHistory(data) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var keepDays = Number(data && data.keepDays) || 0;
+    var cutoff = keepDays > 0 ? (Date.now() - keepDays * 86400000) : null;
+    function roundStartMs(rid) {
+      var p = String(rid).split('|')[0];
+      var d = new Date(p + 'T00:00:00+07:00'); if (isNaN(d.getTime())) d = new Date(p);
+      return isNaN(d.getTime()) ? 0 : d.getTime();
+    }
+    function purgeSheet(name) {
+      var sh = SS.getSheetByName(name); if (!sh) return { removed: 0, kept: 0 };
+      var vals = sh.getDataRange().getValues(); if (vals.length < 2) return { removed: 0, kept: 0 };
+      var head = vals[0], keep = [];
+      for (var i = 1; i < vals.length; i++) {
+        var rid = vals[i][0]; if (rid === '' || rid === null) continue;
+        if (cutoff !== null && roundStartMs(rid) >= cutoff) keep.push(vals[i]);
+      }
+      sh.clearContents();
+      sh.getRange(1, 1, 1, head.length).setValues([head]);
+      if (keep.length) sh.getRange(2, 1, keep.length, keep[0].length).setValues(keep);
+      return { removed: (vals.length - 1) - keep.length, kept: keep.length };
+    }
+    var m = purgeSheet(SHEET_HMENU), r = purgeSheet(SHEET_HREG);
+    _cleanReminderProps_();
+    return { ok: true, menuRowsRemoved: m.removed, regRowsRemoved: r.removed, menuRowsKept: m.kept, regRowsKept: r.kept };
+  } finally {
+    lock.releaseLock();
+  }
+}
+// (ทางเลือก) ล้างประวัติอัตโนมัติทุกเดือน — รันฟังก์ชันนี้ครั้งเดียวจาก Editor เพื่อติดตั้ง
+function setupMonthlyPurgeTrigger() {
+  var t = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < t.length; i++) if (t[i].getHandlerFunction() === 'monthlyPurge') ScriptApp.deleteTrigger(t[i]);
+  ScriptApp.newTrigger('monthlyPurge').timeBased().onMonthDay(1).atHour(3).create();
+  return 'ตั้งล้างประวัติอัตโนมัติทุกวันที่ 1 (~03:00) แล้ว — เก็บรอบใน 45 วันล่าสุด ลบที่เก่ากว่า';
+}
+function monthlyPurge() { var r = purgeHistory({ keepDays: 45 }); _bumpGen(); return r; }
 
 // ล้างเฉพาะข้อมูลการลงทะเบียนของรอบปัจจุบัน (เมนู/Config/ประวัติ ไม่ถูกแตะ)
 function clearRegistrations(data) {

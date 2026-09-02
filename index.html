@@ -2621,7 +2621,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='5.7';
+const APP_VERSION='5.8';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -3065,6 +3065,7 @@ function renderAdminHub(){body().innerHTML=`<div class="note" style="text-align:
   <button class="hub-btn" onclick="go('adminQR')"><span class="ic ic-amber">🧾</span><span>QR เช็คอินหน้าโรงอาหาร<small>พิมพ์ QR ให้พนักงานสแกนยืนยัน "มาทานจริง"</small></span></button>
   <button class="hub-btn" onclick="go('adminDeadline')"><span class="ic ic-blue">⏰</span><span>เปิด/ขยายเวลาลงทะเบียน (พิเศษ)<small>เลือกวัน–เวลาปิดรับเอง แทนค่าที่ระบบตั้งไว้</small></span></button>
   <button class="hub-btn" onclick="npNew='';npConfirm='';npStage='new';go('adminPinSet')"><span class="ic ic-slate">🔑</span><span>ตั้งค่า / เปลี่ยน PIN<small>เปลี่ยนรหัสผู้ดูแล (เก็บในเครื่อง)</small></span></button>
+  <button class="hub-btn hub-danger" onclick="purgeHistoryAsk()"><span class="ic ic-red">🧹</span><span>ล้างประวัติรอบเก่า (ทำทุกเดือน)<small>ลบเมนู+ลงทะเบียนของรอบที่ผ่านมา ให้แอปเบา/เร็ว · รอบปัจจุบันไม่หาย</small></span></button>
   <button class="hub-btn hub-danger" onclick="clearRegAsk()"><span class="ic ic-red">🗑️</span><span>ล้างข้อมูลการลงทะเบียน<small>เริ่มบันทึกใหม่ · เก็บเมนูเดิมไว้ (ยืนยันด้วย PIN)</small></span></button>`;}
 /* ===== เปิด/ขยายเวลาลงทะเบียนพิเศษ: แอดมินเลือกวัน–เวลาปิดเอง (มีผลทุกเครื่อง + ตัวแจ้งเตือน) ===== */
 function renderAdminDeadline(){
@@ -3242,6 +3243,28 @@ function applyEditRound(){
   }
   if(selDay>=menuDays.length)selDay=menuDays.length-1;
   menuStep='edit';toast('แก้วัน/จำนวนวันแล้ว · เมนูเดิมอยู่ครบ ✓');render();
+}
+/* ล้างประวัติรอบเก่า (เมนู+ลงทะเบียนของรอบที่ผ่านมา) ให้แอปเบา — รอบปัจจุบันไม่ถูกแตะ · ยืนยันด้วยคำว่า "ล้าง" + PIN */
+function purgeHistoryAsk(){
+  var o=document.createElement('div');o.className='modal-ov';
+  o.innerHTML=`<div class="modal-bx"><div class="mi">🧹</div><div class="mt" style="color:var(--neg)">ล้างประวัติรอบเก่า</div><div class="mm">ลบ "ประวัติเมนู + ประวัติลงทะเบียน" ของรอบที่ผ่านมา เพื่อให้แอปเบาและเปิดเร็วขึ้น<br><b>รอบปัจจุบันไม่ถูกแตะ</b> · ลบแล้วกู้คืนไม่ได้</div>
+  <select class="txt" id="purgeKeep" style="margin-bottom:8px"><option value="30">เก็บรอบใน 30 วันล่าสุด · ลบที่เก่ากว่า (แนะนำ)</option><option value="0">ลบประวัติทั้งหมด</option></select>
+  <input class="txt" id="purgeWord" placeholder="พิมพ์: ล้าง" autocomplete="off" style="text-align:center;margin-bottom:8px">
+  <input class="txt" id="purgePin" type="password" inputmode="numeric" placeholder="PIN ผู้ดูแล" style="text-align:center;margin-bottom:14px">
+  <div style="display:flex;gap:10px"><button class="btn btn-ghost" style="margin:0;flex:1">ยกเลิก</button><button class="btn btn-brand" style="margin:0;flex:1;background:var(--neg)">ยืนยันล้าง</button></div></div>`;
+  var b=o.querySelectorAll('button');b[0].onclick=function(){o.remove();};
+  b[1].onclick=function(){var w=(document.getElementById('purgeWord').value||'').trim();var p=(document.getElementById('purgePin').value||'').trim();var keep=Number(document.getElementById('purgeKeep').value)||0;
+    if(w!=='ล้าง'){toast('พิมพ์คำว่า "ล้าง" ให้ถูกต้อง');return;}
+    if(p!==getPIN()){toast('PIN ไม่ถูกต้อง');return;}
+    o.remove();toast('กำลังล้างประวัติ...');
+    apiPost('purgeHistory',{keepDays:keep}).then(function(res){
+      if(!res||res.ok===false){showPopup('⚠️','ล้างไม่สำเร็จ',(res&&res.error)||'เชื่อมต่อฐานข้อมูลไม่ได้ กรุณาลองใหม่');return;}
+      return apiPost('bustCache',{}).then(function(){return apiGetState();}).then(function(st){try{applyStateFromAPI(st);}catch(e){}
+        showPopup('✅','ล้างประวัติแล้ว','ลบเมนูรอบเก่า <b>'+res.menuRowsRemoved+'</b> แถว · ลงทะเบียนรอบเก่า <b>'+res.regRowsRemoved+'</b> แถว<br>เหลือเก็บ: เมนู '+res.menuRowsKept+' · ลงทะเบียน '+res.regRowsKept+' แถว');render();});
+    });};
+  o.onclick=function(e){if(e.target===o)o.remove();};
+  document.querySelector('.screen').appendChild(o);
+  setTimeout(function(){var el=document.getElementById('purgeWord');if(el)el.focus();},60);
 }
 /* กันพลาด: ถ้ามีข้อมูลรอบเดิม (เมนู/ลงทะเบียน) ที่จะถูกล้าง ต้องพิมพ์ "ล้าง" + PIN ยืนยันก่อน */
 function askWipeConfirm(cb){
