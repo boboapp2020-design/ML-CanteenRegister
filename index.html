@@ -27,11 +27,13 @@
 window.OneSignalDeferred = window.OneSignalDeferred || [];
 OneSignalDeferred.push(async function(OneSignal){
   try{
+    /* path ของ SW ปรับตามโดเมนอัตโนมัติ: GitHub Pages เสิร์ฟใต้ /ML-CanteenRegister/, Cloudflare เสิร์ฟที่ราก */
+    var OSP = (location.pathname.indexOf('/ML-CanteenRegister/')===0) ? 'ML-CanteenRegister/' : '';
     await OneSignal.init({
       appId: "e50edb91-4c00-44e6-ae2a-e0d3505d3720",
       safari_web_id: "web.onesignal.auto.43f3e2d2-3818-43ea-aa50-e469d0e1e106",
-      serviceWorkerPath: "ML-CanteenRegister/onesignal/OneSignalSDKWorker.js",
-      serviceWorkerParam: { scope: "/ML-CanteenRegister/onesignal/" },
+      serviceWorkerPath: OSP + "onesignal/OneSignalSDKWorker.js",
+      serviceWorkerParam: { scope: "/" + OSP + "onesignal/" },
       notifyButton: { enable: false }
     });
     if(typeof updateNotifBtn==='function')updateNotifBtn();
@@ -2621,7 +2623,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='6.2';
+const APP_VERSION='6.3';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
