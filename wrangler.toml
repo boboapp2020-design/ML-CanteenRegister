@@ -1,0 +1,7 @@
+name = "ml-canteenregister"
+compatibility_date = "2025-01-01"
+
+# เว็บแอปโรงอาหารเป็นไฟล์ static ล้วน (ฐานข้อมูลอยู่ที่ Apps Script)
+# เสิร์ฟทุกไฟล์ในโฟลเดอร์ราก รวมถึง index.html, sw.js, manifest.json, onesignal/
+[assets]
+directory = "./"
