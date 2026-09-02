@@ -2621,7 +2621,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='6.0';
+const APP_VERSION='6.1';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -2727,7 +2727,13 @@ function allDatasets(scope){const arr=[{menuDays:menuDays,registrations:registra
    ถ้าปล่อยว่าง แอปจะทำงานแบบ demo (ข้อมูลอยู่ในเครื่องเท่านั้น ไม่ sync ข้ามอุปกรณ์) */
 const API_URL = 'https://script.google.com/macros/s/AKfycbzFXgTliQIklmbnypdoAQTJ4q_NTRqjhAQKZvK6fwqbzOChR3a_POURzGhPRqxlBK9T/exec';
 function apiEnabled(){return !!API_URL;}
-function apiGetState(){return fetch(API_URL+'?action=state',{cache:'no-store'}).then(r=>r.json());}
+/* มีตัวตัดเวลา: บนเน็ตช้า ถ้าโหลดเกิน 12 วิ จะ reject เพื่อให้ boot ไปใช้ข้อมูลแคช/ตัวอย่าง แทนค้างจอ */
+function apiGetState(){
+  var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+  var timer=setTimeout(function(){try{ctrl&&ctrl.abort();}catch(e){}},12000);
+  return fetch(API_URL+'?action=state',{cache:'no-store',signal:ctrl?ctrl.signal:undefined})
+    .then(function(r){clearTimeout(timer);return r.json();},function(err){clearTimeout(timer);throw err;});
+}
 function apiPostRaw(action,data){if(!apiEnabled())return Promise.resolve({ok:true});
   return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({action:action},data))})
     .then(r=>r.json()).catch(err=>{console.warn('sync failed',err);toast('⚠️ ซิงก์ข้อมูลไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต');return{ok:false,error:String(err)};});}
