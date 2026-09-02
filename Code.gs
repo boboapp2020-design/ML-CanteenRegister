@@ -653,7 +653,7 @@ function saveRegistration(data) {
 // สำคัญ: REST API Key เป็นความลับ — เก็บใน Script Properties เท่านั้น ห้ามใส่ในไฟล์นี้ (ไฟล์นี้อยู่บน GitHub)
 //   ตั้งค่า: Apps Script > Project Settings > Script Properties > เพิ่ม key ชื่อ ONESIGNAL_REST_KEY
 var ONESIGNAL_APP_ID = 'e50edb91-4c00-44e6-ae2a-e0d3505d3720';
-var APP_HOME_URL = 'https://boboapp2020-design.github.io/ML-CanteenRegister/';
+var APP_HOME_URL = 'https://ml-canteenregister.boboapp2020.workers.dev/';
 function osKey_() { return PropertiesService.getScriptProperties().getProperty('ONESIGNAL_REST_KEY') || ''; }
 // ส่งไปหาทุกคนที่สมัครไว้ — OneSignal แต่ละบัญชีตั้งชื่อ segment "ทุกคน" ไม่เหมือนกัน
 // (รุ่นใหม่ = "Total Subscriptions", รุ่นเก่า = "Subscribed Users") จึงไล่ลองทีละชื่อจนเจออันที่มีคนรับจริง
