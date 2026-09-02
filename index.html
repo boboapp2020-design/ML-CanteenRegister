@@ -2561,6 +2561,8 @@ buildEmployees();
 /* พนักงานรายวัน (ระดับ 3) ใช้สิทธิ์ได้เฉพาะคาบเที่ยง */
 function empMeals(e){return e&&e.daily?MEALS.filter(m=>m[0]==='lunch'):MEALS;}
 function availMealsFor(e,di){return empMeals(e).filter(m=>(menuDays[di].meals[m[0]]||[]).length>0);}
+/* วันหยุด: เก็บเป็น "มื้อพิเศษ" key holiday ในเมนูของวันนั้น (ใช้ที่เก็บเดิม ไม่ต้องแก้ชีต) — วันนี้จะถูกข้ามทุกที่ */
+function isHoliday(di){const d=menuDays[di];return !!(d&&d.meals&&(d.meals.holiday||[]).length);}
 const MEALS=[['breakfast','คาบเช้า','☀️'],['lunch','คาบเที่ยง','🍽️'],['dinner','คาบเย็น','🌙']];
 const THMON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 const THDOW=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
@@ -2619,7 +2621,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='5.6';
+const APP_VERSION='5.7';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -2706,7 +2708,10 @@ function renderCheckin(){const r=ciResult||{status:'closed'};const n=thNow();
 /* ลงทะเบียนได้รอบละ 1 ครั้งต่อรหัส — ถ้าลงครบทุกคาบแล้วถือว่า "ลงทะเบียนแล้ว" */
 function regComplete(code){const e=employees.find(x=>x.code===code);if(!e)return false;const rec=registrations[code];if(!rec)return false;let any=false,all=true;menuDays.forEach((_,di)=>{const am=availMealsFor(e,di);if(!am.length)return;const r=rec[di]||{};am.forEach(m=>{if(m[0] in r)any=true;else all=false;});});return any&&all;}
 function firstIncompleteDay(code){const e=employees.find(x=>x.code===code);for(let di=0;di<menuDays.length;di++){const am=availMealsFor(e,di);if(!am.length)continue;const r=(registrations[code]||{})[di]||{};if(!am.every(m=>m[0] in r))return di;}return 0;}
-function alreadyRegPopup(){showPopup('✅','ท่านได้ลงทะเบียนรอบนี้ไปแล้ว','1 รหัสพนักงาน ลงทะเบียนได้ 1 ครั้งต่อรอบ<br>แล้วพบกันรอบหน้า 🍚');}
+function alreadyRegPopup(){const o=document.createElement('div');o.className='modal-ov';
+  o.innerHTML=`<div class="modal-bx"><div class="mi">✅</div><div class="mt">ท่านได้ลงทะเบียนรอบนี้ไปแล้ว</div><div class="mm">1 รหัสพนักงาน ลงทะเบียนได้ 1 ครั้งต่อรอบ<br>แล้วพบกันรอบหน้า 🍚</div><button class="btn btn-brand" style="margin:0">🔍 ดูที่ลงไว้</button><button class="btn btn-ghost" style="margin:9px 0 0">ตกลง</button></div>`;
+  const b=o.querySelectorAll('button');b[0].onclick=()=>{o.remove();myRegCode=codeInput;keyMyReg('ok');};b[1].onclick=()=>o.remove();o.onclick=e=>{if(e.target===o)o.remove();};
+  document.querySelector('.screen').appendChild(o);}
 /* ยังไม่มีเมนูในระบบ = ยังเปิดลงทะเบียนไม่ได้ */
 function menuHasFood(){return menuDays.some(d=>MEALS.some(m=>(d.meals[m[0]]||[]).length>0));}
 function noMenuPopup(){showPopup('🍽️','ยังไม่มีเมนูอาหาร','ผู้ดูแลยังไม่ได้ใส่เมนูของรอบถัดไป<br>รอติดตามเมนูอาหารเร็ว ๆ นี้จ้า 🍚');}
@@ -2876,8 +2881,8 @@ window.addEventListener('popstate',function(e){
   try{history.pushState({d:navStack.length},'');}catch(e2){}
   render();
 });
-function render(){const map={home:renderHome,empSearch:renderEmpSearch,adminPin:renderAdminPin,adminPinSet:renderAdminPinSet,adminHub:renderAdminHub,adminMenu:renderAdminMenu,adminDash:renderAdminDash,adminData:renderAdminData,adminEmp:renderAdminEmp,adminQR:renderAdminQR,adminDeadline:renderAdminDeadline,adminFeedback:renderAdminFeedback,checkin:renderCheckin,todayMenu:renderTodayMenu,appMenu:renderAppMenu,userCode:renderUserCode,userReg:renderUserReg,userDone:renderUserDone,regClosed:renderRegClosed,fbCode:renderFbCode,fbForm:renderFbForm,fbDone:renderFbDone,userHelp:renderUserHelp};setTop();body().className='app-body'+(screen==='home'?' center':'');(map[screen]||renderHome)();}
-function setTop(){const titles={empSearch:'ค้นหาพนักงาน',adminPin:'เข้าสู่ระบบผู้ดูแล',adminPinSet:'ตั้งค่า PIN',adminHub:'ผู้ดูแลระบบ',adminMenu:'จัดเมนู',adminDash:'แดชบอร์ด',adminData:'ข้อมูล & ส่งออก',adminEmp:'จัดการพนักงาน',adminQR:'QR เช็คอิน',adminFeedback:'ข้อเสนอแนะ',adminDeadline:'ตั้งเวลาปิดรับ',checkin:'เช็คอินโรงอาหาร',todayMenu:'เมนูอาหาร',appMenu:'เกี่ยวกับแอป',userCode:'ลงทะเบียน',userReg:'ลงทะเบียน',userDone:'สำเร็จ',regClosed:'ลงทะเบียน',fbCode:'ข้อเสนอแนะ',fbForm:'ให้คะแนน & ข้อเสนอแนะ',fbDone:'ขอบคุณ',userHelp:'วิธีใช้งาน'};
+function render(){const map={home:renderHome,empSearch:renderEmpSearch,adminPin:renderAdminPin,adminPinSet:renderAdminPinSet,adminHub:renderAdminHub,adminMenu:renderAdminMenu,adminDash:renderAdminDash,adminData:renderAdminData,adminEmp:renderAdminEmp,adminQR:renderAdminQR,adminDeadline:renderAdminDeadline,adminFeedback:renderAdminFeedback,checkin:renderCheckin,todayMenu:renderTodayMenu,appMenu:renderAppMenu,userCode:renderUserCode,userReg:renderUserReg,userDone:renderUserDone,regClosed:renderRegClosed,fbCode:renderFbCode,fbForm:renderFbForm,fbDone:renderFbDone,myRegCode:renderMyRegCode,myRegView:renderMyRegView,userHelp:renderUserHelp};setTop();body().className='app-body'+(screen==='home'?' center':'');(map[screen]||renderHome)();}
+function setTop(){const titles={empSearch:'ค้นหาพนักงาน',adminPin:'เข้าสู่ระบบผู้ดูแล',adminPinSet:'ตั้งค่า PIN',adminHub:'ผู้ดูแลระบบ',adminMenu:'จัดเมนู',adminDash:'แดชบอร์ด',adminData:'ข้อมูล & ส่งออก',adminEmp:'จัดการพนักงาน',adminQR:'QR เช็คอิน',adminFeedback:'ข้อเสนอแนะ',adminDeadline:'ตั้งเวลาปิดรับ',checkin:'เช็คอินโรงอาหาร',todayMenu:'เมนูอาหาร',appMenu:'เกี่ยวกับแอป',userCode:'ลงทะเบียน',userReg:'ลงทะเบียน',userDone:'สำเร็จ',regClosed:'ลงทะเบียน',fbCode:'ข้อเสนอแนะ',fbForm:'ให้คะแนน & ข้อเสนอแนะ',fbDone:'ขอบคุณ',myRegCode:'ตรวจสอบที่ลงไว้',myRegView:'ที่ฉันลงไว้',userHelp:'วิธีใช้งาน'};
   const backTo={empSearch:'home',adminPin:'home',adminPinSet:'adminHub',adminHub:'home',adminMenu:'adminHub',adminDash:'adminHub',adminData:'adminHub',adminEmp:'adminHub',adminQR:'adminHub',checkin:'home',todayMenu:'home',appMenu:'home',userCode:'home',userReg:'home',userDone:'home',regClosed:'home',fbCode:'home',fbForm:'home',fbDone:'home',userHelp:'home'};
   if(screen==='home'){hdrEl().className='hdr';hdrEl().innerHTML=`<div class="bm"><img src="${LOGO_CO}"></div><div><div class="bt">โรงครัวมิตรลาว</div><div class="bs">ลงทะเบียนรับประทานอาหาร</div></div><button class="nav" style="margin-left:auto;font-size:21px" onclick="go('appMenu')">☰</button>`;return;}
   hdrEl().className='hdr hdr-bottom';hdrEl().innerHTML=`<button class="nav" onclick="go('home')">⌂</button><span class="title" style="margin:0 auto">${titles[screen]||''}</span><button class="nav" onclick="smartBack()">‹</button>`;}
@@ -2890,6 +2895,7 @@ function renderHome(){const _hl=hoursLeft();const dlTxt=regOpen()?`⏰ เปิ
     <div class="home-co"><img src="${LOGO_CO}" style="height:19px;vertical-align:middle;margin-right:5px">บริษัท น้ำตาลมิตรลาว จำกัด</div>
   </div>
   <button class="hub-btn hub-primary" onclick="startUser()"><span class="ic">📝</span><span>ลงทะเบียนรับประทานอาหาร<small>สำหรับพนักงาน · ใส่รหัสของคุณ</small></span></button>
+  <button class="hub-btn" onclick="myRegCode='';go('myRegCode')"><span class="ic ic-blue">🔍</span><span>ตรวจสอบที่ฉันลงไว้<small>ใส่รหัส · ดูว่าลงทาน/ไม่ทาน วันไหนบ้าง</small></span></button>
   <button class="hub-btn" onclick="fbCode='';go('fbCode')"><span class="ic ic-amber">💬</span><span>ข้อเสนอแนะ / ให้คะแนน<small>ประเมินความพึงพอใจอาหารโรงครัว</small></span></button>
   <div class="note"><span style="color:${regOpen()?(_hl>0&&_hl<=6?'var(--neg)':'var(--amber)'):'var(--neg)'};font-weight:700">${dlTxt}</span></div>
   <button id="notifBtn" class="admin-link" style="color:var(--brand);font-weight:800" onclick="nsSubscribe()">🔔 เปิดการแจ้งเตือน (เด้งเตือนเมื่อมีเมนู / ใกล้หมดเวลา)</button>
@@ -2993,19 +2999,40 @@ function renderUserReg(){const di=regDayIdx,day=menuDays[di],d=thDateISO(day.dat
       <div class="choice"><button class="ch ch-yes ${sel===true?'sel':''}" onclick="setMeal(${di},'${m[0]}',true)">✓ ทาน</button><button class="ch ch-no ${sel===false?'sel':''}" onclick="setMeal(${di},'${m[0]}',false)">✕ ไม่ทาน</button></div></div>`;}).join('')}
   <div style="height:6px"></div>
   <button class="btn btn-brand" onclick="confirmDay()">${di===menuDays.length-1?'ยืนยัน · เสร็จสิ้น':'ยืนยัน'}</button>
-  <button class="btn btn-ghost" onclick="${di===0?'cancelReg()':'prevDay()'}">${di===0?'ยกเลิก':'‹ กลับไปแก้ไข'}</button>`;}
+  <button class="btn btn-ghost" onclick="${prevRegDay(di)<0?'cancelReg()':'prevDay()'}">${prevRegDay(di)<0?'ยกเลิก':'‹ กลับไปแก้ไข'}</button>`;}
 function setMeal(di,mk,eat){registrations[currentUser.code]=registrations[currentUser.code]||{};registrations[currentUser.code][di]=registrations[currentUser.code][di]||{};registrations[currentUser.code][di][mk]=eat;render();}
 /* เลือกครบแต่ละวันแล้วไปวันถัดไป — ยังไม่ส่ง server (ส่งทีเดียวทั้งรอบตอนจบ = atomic กันข้อมูลลงไม่ครบ) */
 function confirmDay(){const di=regDayIdx,am=availMealsFor(currentUser,di),rec=(registrations[currentUser.code]||{})[di]||{};if(!am.every(m=>m[0] in rec)){toast('กรุณาเลือกให้ครบทุกคาบ');return;}
   nextDay();}
-function prevDay(){if(regDayIdx>0){regDayIdx--;go('userReg');}}
+/* ข้ามวันที่ไม่มีเมนู/วันหยุด อัตโนมัติในขั้นตอนลงทะเบียน */
+function regDayHasMeals(di){return availMealsFor(currentUser,di).length>0;}
+function prevRegDay(di){let i=di-1;while(i>=0&&!regDayHasMeals(i))i--;return i;}
+function prevDay(){const i=prevRegDay(regDayIdx);if(i>=0){regDayIdx=i;go('userReg');}}
 function cancelReg(){currentUser=null;go('home');}
-function nextDay(){regDayIdx++;if(regDayIdx>=menuDays.length)go('userDone');else go('userReg');}
+function nextDay(){let i=regDayIdx+1;while(i<menuDays.length&&!regDayHasMeals(i))i++;if(i>=menuDays.length)go('userDone');else{regDayIdx=i;go('userReg');}}
 function openImgItem(di,mk,ix){const it=menuDays[di].meals[mk][ix];if(it&&it.img)openLightbox(it.img);}
 function openLightbox(src){const o=document.createElement('div');o.className='lightbox';o.innerHTML=`<img src="${src}"><div class="lb-close">✕ แตะเพื่อปิด</div>`;o.onclick=()=>o.remove();document.querySelector('.screen').appendChild(o);}
 
+/* ===== ตรวจสอบที่ฉันลงไว้: ใส่รหัส → ดูสถานะทาน/ไม่ทาน/ยังไม่ลง ต่อวัน/คาบ (ข้อมูลล่าสุดจากเซิร์ฟเวอร์) ===== */
+let myRegCode='',myRegUser=null;
+function renderMyRegCode(){body().innerHTML=`<div class="card" style="text-align:center;padding-top:18px"><div style="width:62px;height:62px;border-radius:17px;background:var(--brand-soft);display:grid;place-items:center;font-size:30px;margin:0 auto 6px">🔍</div><div style="font-weight:700;font-size:18px">ใส่รหัสพนักงาน เพื่อดูที่ลงไว้</div><div class="code-display" id="codeDisp">${myRegCode||'—'}</div></div>
+  <div class="keypad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button onclick="keyMyReg('${n}')">${n}</button>`).join('')}<button class="act" onclick="keyMyReg('del')">⌫</button><button onclick="keyMyReg('0')">0</button><button class="act" onclick="keyMyReg('ok')">✓</button></div>
+  <button class="btn btn-ghost" style="margin-top:12px" onclick="go('home')">กลับหน้าแรก</button>`;}
+function keyMyReg(k){if(k==='del')myRegCode=myRegCode.slice(0,-1);
+  else if(k==='ok'){const e=employees.find(x=>x.code===myRegCode);if(!e){toast('ไม่พบรหัสนี้');return;}myRegUser=e;go('myRegView');
+    if(apiEnabled())apiGetState().then(function(st){try{applyStateFromAPI(st);}catch(e2){}if(screen==='myRegView')render();}).catch(function(){});return;}
+  else if(myRegCode.length<6)myRegCode+=k;const d=document.getElementById('codeDisp');if(d)d.textContent=myRegCode||'—';}
+function renderMyRegView(){const e=myRegUser;if(!e){go('myRegCode');return;}const recs=registrations[e.code]||{};let any=false;
+  const html=menuDays.map((day,di)=>{const d=thDateISO(day.dateISO);if(isHoliday(di))return `<div class="card"><div class="sec-title">${d.dow} ${d.short}</div><div class="note" style="text-align:left;padding:4px">🏖️ วันหยุด</div></div>`;const am=availMealsFor(e,di);if(!am.length)return '';const r=recs[di]||{};
+    const rows=am.map(m=>{const has=(m[0] in r);if(has)any=true;const cls=has?(r[m[0]]?'up':'no'):'wait';const tx=has?(r[m[0]]?'ทาน':'ไม่ทาน'):'ยังไม่ลง';return `<div class="row-item"><span style="font-size:19px">${m[2]}</span><span style="flex:1;font-weight:600">${m[1]}</span><span class="pill ${cls}">${tx}</span></div>`;}).join('');
+    return `<div class="card"><div class="sec-title">${d.dow} ${d.short}</div>${rows}</div>`;}).join('');
+  const complete=regComplete(e.code);
+  body().innerHTML=`<div class="hero"><div class="n">${e.name}</div><div class="meta">รหัส ${e.code} · ${e.unit||e.dept}</div></div>
+  <div class="hint" style="${complete?'':'background:var(--amber-l);color:#92400e'}">${complete?'✅ ลงทะเบียนครบทุกวันแล้ว':(any?'⚠️ ลงทะเบียนยังไม่ครบ':'⏳ ยังไม่ได้ลงทะเบียนรอบนี้')} · ${periodLabel()}</div>${html}
+  ${(!complete&&regOpen()&&userMenuReady())?`<button class="btn btn-brand" onclick="codeInput='${e.code}';keyCode('ok')">📝 ไปลงทะเบียน${any?'ต่อ':''}</button>`:''}
+  <button class="btn btn-ghost" onclick="go('home')">กลับหน้าแรก</button>`;}
 function renderUserDone(){const recs=registrations[currentUser.code]||{};
-  let html=menuDays.map((day,di)=>{const d=thDateISO(day.dateISO),r=recs[di]||{};const rows=availMealsFor(currentUser,di).map(m=>`<div class="row-item"><span style="font-size:19px">${m[2]}</span><span style="flex:1;font-weight:600">${m[1]}</span><span class="pill ${r[m[0]]?'up':'no'}">${r[m[0]]?'ทาน':'ไม่ทาน'}</span></div>`).join('');return `<div class="card"><div class="sec-title">${d.dow} ${d.short}</div>${rows}</div>`;}).join('');
+  let html=menuDays.map((day,di)=>{const d=thDateISO(day.dateISO),r=recs[di]||{};if(isHoliday(di))return `<div class="card"><div class="sec-title">${d.dow} ${d.short}</div><div class="note" style="text-align:left;padding:4px">🏖️ วันหยุด</div></div>`;if(!availMealsFor(currentUser,di).length)return '';const rows=availMealsFor(currentUser,di).map(m=>`<div class="row-item"><span style="font-size:19px">${m[2]}</span><span style="flex:1;font-weight:600">${m[1]}</span><span class="pill ${r[m[0]]?'up':'no'}">${r[m[0]]?'ทาน':'ไม่ทาน'}</span></div>`).join('');return `<div class="card"><div class="sec-title">${d.dow} ${d.short}</div>${rows}</div>`;}).join('');
   body().innerHTML=`<div style="text-align:center"><div class="done-check">✓</div><h2 style="font-size:22px;margin:0">ลงทะเบียนสำเร็จ</h2><p style="color:var(--muted);margin:5px 0 14px">${currentUser.name} · ${currentUser.code}</p><div id="saveStat" style="font-size:13.5px;margin:-4px 0 12px"></div></div>${html}<button class="btn btn-brand" onclick="go('home')">เสร็จสิ้น · กลับหน้าแรก</button>`;submitRegistration(currentUser.code);}
 /* ส่งข้อมูลทั้งรอบ "ครั้งเดียว" (atomic) — server เก็บครบทุกวันหรือไม่เก็บเลย ไม่มีทางลงไม่ครบ */
 function submitRegistration(code){const el=()=>document.getElementById('saveStat');
@@ -3156,7 +3183,7 @@ function renderAdminMenu(){if(selDay>=menuDays.length)selDay=0;setTimeout(moBadg
  if(menuStep==='round'){body().innerHTML=`<div class="hint">ขั้นที่ 1 — เลือก “รอบ” จำนวนวันที่จะเปิดลงทะเบียน (บังคับเลือกก่อน)</div><div class="card"><label class="fld">เลือกรอบ (จำนวนวัน)</label><div class="chips">${[2,3,4,5,6].map(n=>`<button class="${rounds===n?'active':''}" onclick="pickRound(${n})">${n} วัน</button>`).join('')}</div><div class="note" style="text-align:left;margin-top:8px">เลือกจำนวนวันก่อน จากนั้นระบบจะให้เลือก “วันแรก” แล้ววันถัด ๆ ไปจะถูกสร้างให้อัตโนมัติตามรอบ</div></div>`;return;}
  if(menuStep==='date'){body().innerHTML=`<div class="hint">ขั้นที่ 2 — เลือก “วันแรก” (รอบ ${rounds} วัน) · วันอื่นต่อให้อัตโนมัติ</div><div class="card"><label class="fld">รอบ (จำนวนวัน)</label><div class="chips">${[2,3,4,5,6].map(n=>`<button class="${rounds===n?'active':''}" onclick="pickRound(${n})">${n} วัน</button>`).join('')}</div><label class="fld">วันแรก</label><input class="txt" type="date" value="${startDate}" onchange="pickStart(this.value)"><div class="card" style="background:var(--brand-soft);border-color:var(--brand-l);margin-top:12px;margin-bottom:0"><div style="font-weight:700;font-size:13px;color:var(--brand);margin-bottom:6px">📅 วันที่จะเปิด (สร้างอัตโนมัติ)</div>${menuDays.map((d,i)=>{const t=thDateISO(d.dateISO);return `<div style="font-size:14px;padding:3px 0">วันที่ ${i+1}: <b>${t.dow} ${t.short}</b></div>`;}).join('')}</div></div><button class="btn btn-brand" onclick="confirmSetup()">ยืนยัน แล้วไปเพิ่มเมนู →</button>`;return;}
  if(menuStep==='editdate'){body().innerHTML=`<div class="hint">✏️ แก้จำนวนวัน / วันเริ่มของรอบ — <b>เมนูที่ใส่ไว้จะไม่หาย</b> (ระบบเลื่อนวันของเมนูให้ตามอัตโนมัติ)</div><div class="card"><label class="fld">จำนวนวัน (รอบ)</label><div class="chips">${[2,3,4,5,6].map(n=>`<button class="${rounds===n?'active':''}" onclick="editPickRound(${n})">${n} วัน</button>`).join('')}</div><label class="fld">วันแรก</label><input class="txt" type="date" value="${startDate}" onchange="pickStart(this.value)"><div class="card" style="background:var(--brand-soft);border-color:var(--brand-l);margin-top:12px;margin-bottom:0"><div style="font-weight:700;font-size:13px;color:var(--brand);margin-bottom:6px">📅 วันใหม่ของรอบ</div>${menuDays.map((d,i)=>{const t=thDateISO(d.dateISO);const has=MEALS.some(m=>(d.meals[m[0]]||[]).length>0);return `<div style="font-size:14px;padding:3px 0">วันที่ ${i+1}: <b>${t.dow} ${t.short}</b>${has?' <span style="color:var(--pos);font-size:12px">· มีเมนู</span>':''}</div>`;}).join('')}</div></div><button class="btn btn-brand" onclick="applyEditRound()">✓ บันทึกวันใหม่ (เก็บเมนูเดิม)</button><button class="btn btn-ghost" onclick="menuStep='edit';render()">ยกเลิก</button><div class="note" style="text-align:left">หมายเหตุ: ถ้าลดจำนวนวันลง เมนูของวันที่เกินจะถูกนำออกจากรอบ · เวลาปิดรับจะคิดใหม่ตามวันเริ่มใหม่</div>`;return;}
- const dayDone=i=>MEALS.every(m=>(menuDays[i].meals[m[0]]||[]).length>0);
+ const dayDone=i=>isHoliday(i)||MEALS.every(m=>(menuDays[i].meals[m[0]]||[]).length>0);
  let unlockDay=menuEditOverride?menuDays.length-1:menuDays.findIndex((_,i)=>!dayDone(i));if(unlockDay<0)unlockDay=menuDays.length-1;
  if(selDay>unlockDay)selDay=unlockDay;
  const smeals=menuDays[selDay].meals;const fe=[0,1,2].find(i=>!(smeals[MEALS[i][0]]||[]).length);const mealUnlock=menuEditOverride?2:((fe===undefined)?2:fe);
@@ -3164,7 +3191,8 @@ function renderAdminMenu(){if(selDay>=menuDays.length)selDay=0;setTimeout(moBadg
  body().innerHTML=`<div class="card" style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-weight:700;font-size:15px">รอบ ${rounds} วัน</div><div style="color:var(--muted);font-size:12.5px">${thDateISO(menuDays[0].dateISO).dow} ${thDateISO(menuDays[0].dateISO).short} → ${thDateISO(menuDays[menuDays.length-1].dateISO).dow} ${thDateISO(menuDays[menuDays.length-1].dateISO).short}</div></div><button class="btn-ghost" style="width:auto;padding:9px 12px;font-size:13px;border-radius:10px;box-shadow:none" onclick="editOrigRounds=rounds;menuStep='editdate';render()">✏️ แก้วัน</button></div>
   <div class="hint">${menuEditOverride?'✏️ โหมดแก้ไขเมนูที่เผยแพร่แล้ว · เลือกวัน/คาบใดก็ได้ · บันทึกให้พนักงานเห็นทันที':'กรอกเมนูให้ครบทั้ง 3 คาบ (เช้า→เที่ยง→เย็น) ตามลำดับ · วันถัดไปจะปลดล็อก 🔒 เมื่อกรอกครบ ✓'}</div>
   <div id="moStat" style="font-size:12.5px;font-weight:700;margin:-4px 2px 10px"></div>
-  <div class="card"><label class="fld">เลือกวัน</label><div class="chips day">${menuDays.map((dd,i)=>{const d=thDateISO(dd.dateISO);const lock=i>unlockDay,done=dayDone(i);return `<button class="${selDay===i?'active':''}" ${lock?'disabled':''} style="flex:1;min-width:0;padding:9px 3px;font-size:12px;line-height:1.25;${lock?'opacity:.35':''}" onclick="${lock?'':`selDay=${i};render()`}">${d.dow.slice(0,2)}<br>${d.short}${done?' ✓':lock?' 🔒':''}</button>`;}).join('')}</div>
+  <div class="card"><label class="fld">เลือกวัน</label><div class="chips day">${menuDays.map((dd,i)=>{const d=thDateISO(dd.dateISO);const lock=i>unlockDay,done=dayDone(i);return `<button class="${selDay===i?'active':''}" ${lock?'disabled':''} style="flex:1;min-width:0;padding:9px 3px;font-size:12px;line-height:1.25;${lock?'opacity:.35':''}" onclick="${lock?'':`selDay=${i};render()`}">${d.dow.slice(0,2)}<br>${d.short}${isHoliday(i)?' 🏖️':done?' ✓':lock?' 🔒':''}</button>`;}).join('')}</div>
+    ${isHoliday(selDay)?`<div class="hint" style="background:var(--amber-l);color:#92400e;margin-top:10px">🏖️ วันนี้ตั้งเป็น "วันหยุด" — ระบบจะข้ามวันนี้ ไม่ต้องใส่เมนู (พนักงานไม่ต้องลง · ไม่มีแจ้งเตือน/เช็คอิน)</div><button class="btn btn-ghost" style="margin:8px 0 0" onclick="toggleHoliday()">↩ ยกเลิกวันหยุด (กลับมาใส่เมนู)</button></div><div class="card" style="display:none">`:`<button class="btn btn-ghost" style="margin:8px 0 4px;font-size:13px" onclick="toggleHoliday()">🏖️ ตั้งวันนี้เป็นวันหยุด (ข้ามวัน ไม่ใส่เมนู)</button>`}
     <label class="fld">เลือกคาบ (ไล่ตามลำดับ)</label><div class="chips">${MEALS.map((m,i)=>{const filled=(smeals[m[0]]||[]).length>0,lock=i>mealUnlock;return `<button class="${selMeal===m[0]?'active':''}" ${lock?'disabled':''} style="${lock?'opacity:.35':''}" onclick="${lock?'':`selMeal='${m[0]}';render()`}">${m[2]}<br>${m[1].replace('คาบ','')}${filled?' ✓':lock?' 🔒':''}</button>`;}).join('')}</div>
     <label class="fld">ชื่อเมนู <span style="color:var(--muted);font-weight:500;font-size:12px">(กด + ถ้าคาบนี้มีมากกว่า 1 เมนู)</span></label>
     ${mNames.map((v,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center"><input class="txt mname" placeholder="${i===0?'เช่น ข้าวผัดกุ้ง':'เมนูที่ '+(i+1)}" value="${(v||'').replace(/"/g,'&quot;')}" oninput="mNames[${i}]=this.value" style="flex:1"><button onclick="mNameAdd()" style="width:42px;height:42px;flex-shrink:0;border:none;border-radius:11px;background:var(--brand-soft);color:var(--brand);font-size:22px;font-weight:800;cursor:pointer;font-family:inherit">+</button><button onclick="mNameDel(${i})" style="width:42px;height:42px;flex-shrink:0;border:none;border-radius:11px;background:var(--neg-l);color:var(--neg);font-size:24px;font-weight:800;cursor:pointer;font-family:inherit">−</button></div>`).join('')}
@@ -3210,7 +3238,7 @@ function applyEditRound(){
     /* อัปเดตวันที่ในเมนูทุกมื้อที่มีอยู่ (ให้เช็คอิน/วันที่ตรงวันใหม่) ผ่านคิวส่งซ้ำจนสำเร็จ */
     menuDays.forEach(function(d,di){MEALS.forEach(function(m){if((d.meals[m[0]]||[]).length)queueMenuSave(di,m[0]);});});
     /* ถ้าลดจำนวนวันลง ล้างเมนูของวันที่เกินออกจากเซิร์ฟเวอร์ */
-    for(var di=rounds;di<editOrigRounds;di++){(function(idx){MEALS.forEach(function(m){apiPost('saveMenuDay',{dayIndex:idx,dateISO:ymd(addDays(startDate,idx)),mealKey:m[0],items:[]});});})(di);}
+    for(var di=rounds;di<editOrigRounds;di++){(function(idx){MEALS.map(function(m){return m[0];}).concat(['holiday']).forEach(function(mk){apiPost('saveMenuDay',{dayIndex:idx,dateISO:ymd(addDays(startDate,idx)),mealKey:mk,items:[]});});})(di);}
   }
   if(selDay>=menuDays.length)selDay=menuDays.length-1;
   menuStep='edit';toast('แก้วัน/จำนวนวันแล้ว · เมนูเดิมอยู่ครบ ✓');render();
@@ -3251,7 +3279,15 @@ let mNames=[''];
 function mNameAdd(){mNames.push('');render();}
 function mNameDel(i){if(mNames.length<=1){mNames=[''];render();return;}mNames.splice(i,1);render();}
 function prevImg(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{pendingImg=ev.target.result;const p=document.getElementById('mPrev');p.src=pendingImg;p.classList.remove('hide');};r.readAsDataURL(f);}
-function addMenu(){const names=mNames.map(s=>(s||'').trim()).filter(Boolean);if(!names.length){toast('กรุณาใส่ชื่อเมนู');return;}
+/* ตั้ง/ยกเลิก "วันหยุด" ของวันที่เลือก — ตั้งแล้วล้างเมนูของวันนั้น นับว่าวันนี้ "ครบ" เพื่อปลดล็อกวันถัดไป */
+function toggleHoliday(){const di=selDay,d=menuDays[di];
+  if(isHoliday(di)){delete d.meals.holiday;queueMenuSave(di,'holiday');toast('ยกเลิกวันหยุดแล้ว');render();return;}
+  d.meals.holiday=[{name:'วันหยุด',emoji:'🏖️',img:null}];
+  MEALS.forEach(m=>{if((d.meals[m[0]]||[]).length){d.meals[m[0]]=[];queueMenuSave(di,m[0]);}});
+  queueMenuSave(di,'holiday');
+  toast('ตั้งเป็นวันหยุดแล้ว 🏖️ ข้ามไปวันถัดไป');
+  if(di<menuDays.length-1)selDay=di+1;selMeal='breakfast';render();}
+function addMenu(){if(isHoliday(selDay)){toast('วันนี้เป็นวันหยุด — กด "ยกเลิกวันหยุด" ก่อนถ้าจะใส่เมนู');return;}const names=mNames.map(s=>(s||'').trim()).filter(Boolean);if(!names.length){toast('กรุณาใส่ชื่อเมนู');return;}
   menuDays[selDay].meals[selMeal]=menuDays[selDay].meals[selMeal]||[];
   names.forEach((n,i)=>{menuDays[selDay].meals[selMeal].push({name:n,emoji:'🍽️',img:i===0?pendingImg:null});});
   pendingImg=null;mNames=[''];toast(names.length>1?`เพิ่ม ${names.length} เมนูแล้ว`:'เพิ่มเมนูแล้ว');
@@ -3269,7 +3305,7 @@ function editItem(di,mk,idx){const it=menuDays[di].meals[mk][idx];const o=docume
 function delItem(di,mk,idx){menuDays[di].meals[mk].splice(idx,1);
   queueMenuSave(di,mk);
   render();}
-function renderMList(){document.getElementById('mList').innerHTML=menuDays.map((dd,di)=>{const d=thDateISO(dd.dateISO);const meals=MEALS.filter(m=>(dd.meals[m[0]]||[]).length).map(m=>dd.meals[m[0]].map((x,idx)=>`<div class="menu-manage"><div class="em" ${x.img?`onclick="openLightbox(menuDays[${di}].meals['${m[0]}'][${idx}].img)"`:''}>${x.img?`<img src="${x.img}">`:x.emoji}</div><div style="flex:1"><div style="font-weight:600">${x.name}</div><div style="color:var(--muted);font-size:12.5px">${m[2]} ${m[1]}${x.img?' · 📷 มีรูป (กดดู)':''}</div></div><button class="del" style="background:var(--info-l);color:var(--info);margin-right:6px" onclick="editItem(${di},'${m[0]}',${idx})">✏️</button><button class="del" onclick="delItem(${di},'${m[0]}',${idx})">🗑</button></div>`).join('')).join('');return `<div style="margin-bottom:6px"><div style="font-weight:700;font-size:13px;color:var(--info);margin:8px 2px">${d.dow} ${d.short}</div>${meals||'<div class="note" style="text-align:left;padding:4px">— ยังไม่มีเมนู —</div>'}</div>`;}).join('');}
+function renderMList(){document.getElementById('mList').innerHTML=menuDays.map((dd,di)=>{const d=thDateISO(dd.dateISO);const meals=MEALS.filter(m=>(dd.meals[m[0]]||[]).length).map(m=>dd.meals[m[0]].map((x,idx)=>`<div class="menu-manage"><div class="em" ${x.img?`onclick="openLightbox(menuDays[${di}].meals['${m[0]}'][${idx}].img)"`:''}>${x.img?`<img src="${x.img}">`:x.emoji}</div><div style="flex:1"><div style="font-weight:600">${x.name}</div><div style="color:var(--muted);font-size:12.5px">${m[2]} ${m[1]}${x.img?' · 📷 มีรูป (กดดู)':''}</div></div><button class="del" style="background:var(--info-l);color:var(--info);margin-right:6px" onclick="editItem(${di},'${m[0]}',${idx})">✏️</button><button class="del" onclick="delItem(${di},'${m[0]}',${idx})">🗑</button></div>`).join('')).join('');return `<div style="margin-bottom:6px"><div style="font-weight:700;font-size:13px;color:var(--info);margin:8px 2px">${d.dow} ${d.short}</div>${meals||(isHoliday(di)?'<div class="note" style="text-align:left;padding:4px">🏖️ วันหยุด — ข้าม ไม่ใส่เมนู</div>':'<div class="note" style="text-align:left;padding:4px">— ยังไม่มีเมนู —</div>')}</div>`;}).join('');}
 
 function aggMeal(){const c={breakfast:0,lunch:0,dinner:0};Object.values(registrations).forEach(days=>Object.values(days).forEach(r=>MEALS.forEach(m=>{if(r[m[0]])c[m[0]]++;})));return c;}
 function aggDay(){return menuDays.map((day,di)=>{let n=0;Object.values(registrations).forEach(days=>{const r=days[di];if(r)MEALS.forEach(m=>{if(r[m[0]])n++;});});return{label:thDateISO(day.dateISO).dow.slice(0,2)+' '+thDateISO(day.dateISO).short,val:n};});}
