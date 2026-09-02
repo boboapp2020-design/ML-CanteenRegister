@@ -90,10 +90,10 @@ OneSignalDeferred.push(async function(OneSignal){
   .btn-ghost{background:#fff;color:var(--ink2);border:1px solid var(--line);font-size:16px;padding:14px;box-shadow:var(--sh-sm);}
   .btn+.btn{margin-top:10px;}
 
-  .hub-btn{width:100%;border:1px solid var(--line);border-radius:17px;padding:19px 17px;font-family:inherit;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:14px;font-size:18px;margin-bottom:12px;transition:.12s;text-align:left;background:var(--card);color:var(--ink);box-shadow:var(--sh-sm);}
+  .hub-btn{width:100%;border:1px solid var(--line);border-radius:15px;padding:13px 14px;font-family:inherit;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:11px;font-size:15.5px;margin-bottom:8px;transition:.12s;text-align:left;background:var(--card);color:var(--ink);box-shadow:var(--sh-sm);}
   .hub-btn:active{transform:scale(.985);}
-  .hub-btn .ic{width:50px;height:50px;border-radius:14px;display:grid;place-items:center;font-size:25px;flex-shrink:0;}
-  .hub-btn small{display:block;font-size:12.5px;font-weight:500;color:var(--muted);margin-top:3px;}
+  .hub-btn .ic{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:21px;flex-shrink:0;}
+  .hub-btn small{display:block;font-size:11.5px;font-weight:500;color:var(--muted);margin-top:2px;line-height:1.3;}
   .hub-primary{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 8px 20px rgba(6,47,110,.28);}
   .hub-primary small{color:rgba(255,255,255,.82);} .hub-primary .ic{background:rgba(255,255,255,.16);}
   .ic-blue{background:var(--info-l);color:var(--info);} .ic-slate{background:#f1f5f9;color:var(--slate);} .ic-amber{background:var(--amber-l);color:var(--amber);} .ic-red{background:var(--neg-l);color:var(--neg);}
@@ -194,8 +194,8 @@ OneSignalDeferred.push(async function(OneSignal){
   .menu-manage .em{width:44px;height:44px;border-radius:10px;background:var(--bg);display:grid;place-items:center;font-size:22px;flex-shrink:0;overflow:hidden;cursor:pointer;} .menu-manage .em img{width:100%;height:100%;object-fit:cover;}
   .hint{background:var(--info-l);color:#075985;padding:11px 13px;border-radius:12px;font-size:12.5px;font-weight:500;margin-bottom:12px;line-height:1.5;}
   .hide{display:none!important;} .caption{text-align:center;color:var(--muted);font-size:12px;margin-top:10px;}
-  .del{color:var(--neg);background:none;border:none;font-size:18px;cursor:pointer;padding:4px 7px;} .note{color:var(--muted);font-size:12px;text-align:center;padding:8px;} .home-name{font-size:20px;font-weight:800;line-height:1.25;color:var(--brand);letter-spacing:-.3px;} .home-co{font-size:13px;color:var(--muted);margin-top:5px;font-weight:600;}
-  .admin-link{display:block;margin:16px auto 0;background:none;border:none;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;opacity:.75;text-decoration:underline;}
+  .del{color:var(--neg);background:none;border:none;font-size:18px;cursor:pointer;padding:4px 7px;} .note{color:var(--muted);font-size:12px;text-align:center;padding:8px;} .home-name{font-size:17.5px;font-weight:800;line-height:1.2;color:var(--brand);letter-spacing:-.3px;} .home-co{font-size:13px;color:var(--muted);margin-top:5px;font-weight:600;}
+  .admin-link{display:block;margin:10px auto 0;background:none;border:none;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;opacity:.75;text-decoration:underline;}
   .fb-q{padding:13px 2px;border-bottom:1px solid var(--line);} .fb-q:last-child{border-bottom:none;}
   .fb-qh{font-weight:700;font-size:15px;text-align:center;}
   .stars{display:flex;gap:6px;margin:9px 0 3px;justify-content:center;}
@@ -2621,7 +2621,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='5.9';
+const APP_VERSION='6.0';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -2709,7 +2709,7 @@ function renderCheckin(){const r=ciResult||{status:'closed'};const n=thNow();
 function regComplete(code){const e=employees.find(x=>x.code===code);if(!e)return false;const rec=registrations[code];if(!rec)return false;let any=false,all=true;menuDays.forEach((_,di)=>{const am=availMealsFor(e,di);if(!am.length)return;const r=rec[di]||{};am.forEach(m=>{if(m[0] in r)any=true;else all=false;});});return any&&all;}
 function firstIncompleteDay(code){const e=employees.find(x=>x.code===code);for(let di=0;di<menuDays.length;di++){const am=availMealsFor(e,di);if(!am.length)continue;const r=(registrations[code]||{})[di]||{};if(!am.every(m=>m[0] in r))return di;}return 0;}
 function alreadyRegPopup(){const o=document.createElement('div');o.className='modal-ov';
-  o.innerHTML=`<div class="modal-bx"><div class="mi">✅</div><div class="mt">ท่านได้ลงทะเบียนรอบนี้ไปแล้ว</div><div class="mm">1 รหัสพนักงาน ลงทะเบียนได้ 1 ครั้งต่อรอบ<br>แล้วพบกันรอบหน้า 🍚</div><button class="btn btn-brand" style="margin:0">🔍 ดูที่ลงไว้</button><button class="btn btn-ghost" style="margin:9px 0 0">ตกลง</button></div>`;
+  o.innerHTML=`<div class="modal-bx"><div class="mi">✅</div><div class="mt">ท่านได้ลงทะเบียนรอบนี้ไปแล้ว</div><div class="mm">1 รหัสพนักงาน ลงทะเบียนได้ 1 ครั้งต่อรอบ<br>แล้วพบกันรอบหน้า 🍚</div><button class="btn btn-brand" style="margin:0">🔍 ตรวจสอบสิทธิ์</button><button class="btn btn-ghost" style="margin:9px 0 0">ตกลง</button></div>`;
   const b=o.querySelectorAll('button');b[0].onclick=()=>{o.remove();myRegCode=codeInput;keyMyReg('ok');};b[1].onclick=()=>o.remove();o.onclick=e=>{if(e.target===o)o.remove();};
   document.querySelector('.screen').appendChild(o);}
 /* ยังไม่มีเมนูในระบบ = ยังเปิดลงทะเบียนไม่ได้ */
@@ -2882,20 +2882,20 @@ window.addEventListener('popstate',function(e){
   render();
 });
 function render(){const map={home:renderHome,empSearch:renderEmpSearch,adminPin:renderAdminPin,adminPinSet:renderAdminPinSet,adminHub:renderAdminHub,adminMenu:renderAdminMenu,adminDash:renderAdminDash,adminData:renderAdminData,adminEmp:renderAdminEmp,adminQR:renderAdminQR,adminDeadline:renderAdminDeadline,adminFeedback:renderAdminFeedback,checkin:renderCheckin,todayMenu:renderTodayMenu,appMenu:renderAppMenu,userCode:renderUserCode,userReg:renderUserReg,userDone:renderUserDone,regClosed:renderRegClosed,fbCode:renderFbCode,fbForm:renderFbForm,fbDone:renderFbDone,myRegCode:renderMyRegCode,myRegView:renderMyRegView,userHelp:renderUserHelp};setTop();body().className='app-body'+(screen==='home'?' center':'');(map[screen]||renderHome)();}
-function setTop(){const titles={empSearch:'ค้นหาพนักงาน',adminPin:'เข้าสู่ระบบผู้ดูแล',adminPinSet:'ตั้งค่า PIN',adminHub:'ผู้ดูแลระบบ',adminMenu:'จัดเมนู',adminDash:'แดชบอร์ด',adminData:'ข้อมูล & ส่งออก',adminEmp:'จัดการพนักงาน',adminQR:'QR เช็คอิน',adminFeedback:'ข้อเสนอแนะ',adminDeadline:'ตั้งเวลาปิดรับ',checkin:'เช็คอินโรงอาหาร',todayMenu:'เมนูอาหาร',appMenu:'เกี่ยวกับแอป',userCode:'ลงทะเบียน',userReg:'ลงทะเบียน',userDone:'สำเร็จ',regClosed:'ลงทะเบียน',fbCode:'ข้อเสนอแนะ',fbForm:'ให้คะแนน & ข้อเสนอแนะ',fbDone:'ขอบคุณ',myRegCode:'ตรวจสอบที่ลงไว้',myRegView:'ที่ฉันลงไว้',userHelp:'วิธีใช้งาน'};
+function setTop(){const titles={empSearch:'ค้นหาพนักงาน',adminPin:'เข้าสู่ระบบผู้ดูแล',adminPinSet:'ตั้งค่า PIN',adminHub:'ผู้ดูแลระบบ',adminMenu:'จัดเมนู',adminDash:'แดชบอร์ด',adminData:'ข้อมูล & ส่งออก',adminEmp:'จัดการพนักงาน',adminQR:'QR เช็คอิน',adminFeedback:'ข้อเสนอแนะ',adminDeadline:'ตั้งเวลาปิดรับ',checkin:'เช็คอินโรงอาหาร',todayMenu:'เมนูอาหาร',appMenu:'เกี่ยวกับแอป',userCode:'ลงทะเบียน',userReg:'ลงทะเบียน',userDone:'สำเร็จ',regClosed:'ลงทะเบียน',fbCode:'ข้อเสนอแนะ',fbForm:'ให้คะแนน & ข้อเสนอแนะ',fbDone:'ขอบคุณ',myRegCode:'ตรวจสอบสิทธิ์',myRegView:'ตรวจสอบสิทธิ์',userHelp:'วิธีใช้งาน'};
   const backTo={empSearch:'home',adminPin:'home',adminPinSet:'adminHub',adminHub:'home',adminMenu:'adminHub',adminDash:'adminHub',adminData:'adminHub',adminEmp:'adminHub',adminQR:'adminHub',checkin:'home',todayMenu:'home',appMenu:'home',userCode:'home',userReg:'home',userDone:'home',regClosed:'home',fbCode:'home',fbForm:'home',fbDone:'home',userHelp:'home'};
   if(screen==='home'){hdrEl().className='hdr';hdrEl().innerHTML=`<div class="bm"><img src="${LOGO_CO}"></div><div><div class="bt">โรงครัวมิตรลาว</div><div class="bs">ลงทะเบียนรับประทานอาหาร</div></div><button class="nav" style="margin-left:auto;font-size:21px" onclick="go('appMenu')">☰</button>`;return;}
   hdrEl().className='hdr hdr-bottom';hdrEl().innerHTML=`<button class="nav" onclick="go('home')">⌂</button><span class="title" style="margin:0 auto">${titles[screen]||''}</span><button class="nav" onclick="smartBack()">‹</button>`;}
 
 function renderHome(){const _hl=hoursLeft();const dlTxt=regOpen()?`⏰ เปิดลงทะเบียนถึง ${regDlText()}${_hl>0&&_hl<=12?` · เหลืออีก ${Math.ceil(_hl)} ชม.`:''}`:`⏰ ปิดรับลงทะเบียนรอบนี้แล้ว`;body().innerHTML=`
-  <div style="text-align:center;margin-bottom:20px">
-    <img src="${LOGO_APP}" alt="app" onclick="openTodayMenu()" style="width:116px;height:116px;border-radius:27px;box-shadow:0 12px 28px rgba(6,47,110,.28);display:block;margin:0 auto 6px;cursor:pointer">
-    <div onclick="openTodayMenu()" style="color:var(--info);font-size:12px;font-weight:700;margin-bottom:8px;cursor:pointer">แตะโลโก้เพื่อดูเมนูวันนี้ 🍽️</div>
+  <div style="text-align:center;margin-bottom:12px">
+    <img src="${LOGO_APP}" alt="app" onclick="openTodayMenu()" style="width:88px;height:88px;border-radius:21px;box-shadow:0 10px 22px rgba(6,47,110,.26);display:block;margin:0 auto 5px;cursor:pointer">
+    <div onclick="openTodayMenu()" style="color:var(--info);font-size:11.5px;font-weight:700;margin-bottom:6px;cursor:pointer">แตะโลโก้เพื่อดูเมนูวันนี้ 🍽️</div>
     <div class="home-name">แอปลงทะเบียนรับประทาน<br>อาหารที่โรงครัว</div>
     <div class="home-co"><img src="${LOGO_CO}" style="height:19px;vertical-align:middle;margin-right:5px">บริษัท น้ำตาลมิตรลาว จำกัด</div>
   </div>
   <button class="hub-btn hub-primary" onclick="startUser()"><span class="ic">📝</span><span>ลงทะเบียนรับประทานอาหาร<small>สำหรับพนักงาน · ใส่รหัสของคุณ</small></span></button>
-  <button class="hub-btn" onclick="myRegCode='';go('myRegCode')"><span class="ic ic-blue">🔍</span><span>ตรวจสอบที่ฉันลงไว้<small>ใส่รหัส · ดูว่าลงทาน/ไม่ทาน วันไหนบ้าง</small></span></button>
+  <button class="hub-btn" onclick="myRegCode='';go('myRegCode')"><span class="ic ic-blue">🔍</span><span>ตรวจสอบสิทธิ์<small>ใส่รหัส · ดูว่าลงทาน/ไม่ทาน วันไหนบ้าง</small></span></button>
   <button class="hub-btn" onclick="fbCode='';go('fbCode')"><span class="ic ic-amber">💬</span><span>ข้อเสนอแนะ / ให้คะแนน<small>ประเมินความพึงพอใจอาหารโรงครัว</small></span></button>
   <div class="note"><span style="color:${regOpen()?(_hl>0&&_hl<=6?'var(--neg)':'var(--amber)'):'var(--neg)'};font-weight:700">${dlTxt}</span></div>
   <button id="notifBtn" class="admin-link" style="color:var(--brand);font-weight:800" onclick="nsSubscribe()">🔔 เปิดการแจ้งเตือน (เด้งเตือนเมื่อมีเมนู / ใกล้หมดเวลา)</button>
@@ -3015,7 +3015,7 @@ function openLightbox(src){const o=document.createElement('div');o.className='li
 
 /* ===== ตรวจสอบที่ฉันลงไว้: ใส่รหัส → ดูสถานะทาน/ไม่ทาน/ยังไม่ลง ต่อวัน/คาบ (ข้อมูลล่าสุดจากเซิร์ฟเวอร์) ===== */
 let myRegCode='',myRegUser=null;
-function renderMyRegCode(){body().innerHTML=`<div class="card" style="text-align:center;padding-top:18px"><div style="width:62px;height:62px;border-radius:17px;background:var(--brand-soft);display:grid;place-items:center;font-size:30px;margin:0 auto 6px">🔍</div><div style="font-weight:700;font-size:18px">ใส่รหัสพนักงาน เพื่อดูที่ลงไว้</div><div class="code-display" id="codeDisp">${myRegCode||'—'}</div></div>
+function renderMyRegCode(){body().innerHTML=`<div class="card" style="text-align:center;padding-top:18px"><div style="width:62px;height:62px;border-radius:17px;background:var(--brand-soft);display:grid;place-items:center;font-size:30px;margin:0 auto 6px">🔍</div><div style="font-weight:700;font-size:18px">ตรวจสอบสิทธิ์ · ใส่รหัสพนักงาน</div><div class="code-display" id="codeDisp">${myRegCode||'—'}</div></div>
   <div class="keypad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button onclick="keyMyReg('${n}')">${n}</button>`).join('')}<button class="act" onclick="keyMyReg('del')">⌫</button><button onclick="keyMyReg('0')">0</button><button class="act" onclick="keyMyReg('ok')">✓</button></div>
   <button class="btn btn-ghost" style="margin-top:12px" onclick="go('home')">กลับหน้าแรก</button>`;}
 function keyMyReg(k){if(k==='del')myRegCode=myRegCode.slice(0,-1);
