@@ -2621,7 +2621,7 @@ function doCheckin(){const mk=currentMealWindow();
       if(dup){ciResult={status:'dup',meal:mk};}
       else{ciAdd(thNow().date,mk);apiPost('checkin',{date:thNow().date,meal:mk});try{localStorage.setItem(key,'1');}catch(e){}ciResult={status:'ok',meal:mk};}}}
   go('checkin');}
-const APP_VERSION='5.8';
+const APP_VERSION='5.9';
 function baseUrl(){return location.href.split('?')[0].split('#')[0];}
 /* เมนูวันนี้ — แสดงตามช่วงเวลา (เวลาไทย): ≤08:00 ทั้ง 3 คาบ · ≤13:00 เที่ยง+เย็น · ≤18:00 เย็น · หลัง 18:00 วันถัดไป */
 function todayMenuInfo(){const n=thNow();let meals=['breakfast','lunch','dinner'],nextDay=false;
@@ -3594,6 +3594,9 @@ afterBoot=function(){
   setTimeout(hideSplash,remain);
 };
 boot();
+/* กันค้างหน้า splash: ถ้าโหลดข้อมูลนานผิดปกติ (เน็ตช้า/เซิร์ฟเวอร์ช้า/ค้าง) บังคับเข้าแอปหลัง 9 วิ
+   — แอปยังมี menuDays เริ่มต้น จึง render หน้าแรกได้เสมอ ผู้ใช้ไม่ค้างจอ icon */
+setTimeout(function(){ if(!_bootDone){ _bootDone=true; try{ if(typeof render==='function') render(); }catch(e){} try{ hideSplash(); }catch(e){} } }, 9000);
 </script>
 <script>
 /* ลงทะเบียน service worker + อัปเดตอัตโนมัติ ผู้ใช้ไม่ต้องล้างแคชเอง */
