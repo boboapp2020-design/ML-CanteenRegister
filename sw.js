@@ -1,4 +1,4 @@
-const CACHE='canteen-v66';
+const CACHE='canteen-v67';
 const ASSETS=['./','index.html','manifest.json','icon-192.png','icon-512.png'];
 /* ดึงแบบข้าม HTTP cache ของเบราว์เซอร์เสมอ กันไฟล์เก่าค้าง ผู้ใช้ไม่ต้องล้างแคชเอง */
 function fresh(url){return new Request(url,{cache:'reload'});}
