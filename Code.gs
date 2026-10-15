@@ -727,8 +727,8 @@ function remindDeadline() {
   var startDate = isoD(cfg.startDate);
   var rounds = Number(cfg.rounds) || 0;
   var menuPub = Number(cfg.menuPub) || 0;
-  if (!startDate || !menuPub) return;                    // ไม่มีรอบ/ยังไม่เผยแพร่เมนู = ไม่เตือน
-  remindMeals_(startDate, rounds);                       // A) เตือนก่อนเวลาทานอาหาร (วันที่มีเมนู)
+  remindMeals_(menuPub ? startDate : '');                              // A) เตือนก่อนเวลาทานอาหาร (วันที่มีเมนู) — หาเมนูตามวันที่จริง รวมรอบที่ย้ายเข้าประวัติแล้ว
+  if (!startDate || !menuPub) return;                    // ไม่มีรอบ/ยังไม่เผยแพร่เมนู = ไม่เตือนให้ลงทะเบียน
   var deadline = _effectiveDeadline_(cfg); if (!deadline) return;  // B) เตือนรีบลงทะเบียน (จนถึงปิดรับ)
   var hoursUntil = (deadline.getTime() - Date.now()) / 3600000;
   if (hoursUntil <= 0) return;                           // ปิดรับแล้ว หยุดเตือน
@@ -765,23 +765,44 @@ var MEAL_REMIND = [
   { key: 'lunch',     s: '11:30', e: '13:10', label: 'อาหารกลางวัน' },
   { key: 'dinner',    s: '16:30', e: '18:30', label: 'อาหารเย็น' }
 ];
-function _menuItemsFor_(menuVals, dayIndex, mealKey) {
-  for (var i = 1; i < menuVals.length; i++) {
-    if (String(menuVals[i][0]) === String(dayIndex) && menuVals[i][2] === mealKey) {
-      try { return JSON.parse(menuVals[i][3] || '[]'); } catch (e) { return []; }
+// วันที่ของวันที่ n ในรอบที่เริ่ม startISO (0 = วันแรก) — คำนวณเหมือนที่แอปแสดงผล (startDate + ลำดับวัน)
+// ไม่พึ่งคอลัมน์ dateISO ในชีต เพราะแอปไม่ได้ส่งมาให้ครบเสมอ
+function _isoPlusDays_(startISO, n) {
+  var ms = new Date(startISO + 'T00:00:00+07:00').getTime();
+  if (isNaN(ms)) return '';
+  return Utilities.formatDate(new Date(ms + Number(n) * 86400000), 'Asia/Bangkok', 'yyyy-MM-dd');
+}
+// หาเมนูของ "วันนี้" + มื้อที่ต้องการ — ดูจากตารางเมนูรอบปัจจุบัน (ถ้าเผยแพร่แล้ว) ก่อน แล้วค่อยดูประวัติเมนู
+// (กรณีแอดมินตั้งรอบถัดไปล่วงหน้า รอบที่กำลังทานอยู่จะถูกย้ายเข้าประวัติแล้ว ต้องยังเตือนได้)
+function _menuItemsByDate_(menuVals, hmenuVals, today, mealKey, curStart) {
+  var i;
+  if (curStart) {
+    for (i = 1; i < menuVals.length; i++) {   // เมนูรอบปัจจุบัน: dayIndex,dateISO,mealKey,itemsJson
+      if (menuVals[i][0] === '' || menuVals[i][0] === null) continue;   // แถวว่าง ห้ามนับเป็นวันที่ 0
+      if (menuVals[i][2] === mealKey && _isoPlusDays_(curStart, menuVals[i][0]) === today) {
+        try { return JSON.parse(menuVals[i][3] || '[]'); } catch (e) { return []; }
+      }
+    }
+  }
+  for (i = 1; i < hmenuVals.length; i++) {     // ประวัติเมนู: roundId(startDate|rounds),dayIndex,dateISO,mealKey,itemsJson
+    if (hmenuVals[i][3] !== mealKey || hmenuVals[i][1] === '' || hmenuVals[i][1] === null) continue;
+    var rs =String(hmenuVals[i][0]).split('|')[0];
+    if (_isoPlusDays_(rs, hmenuVals[i][1]) === today) {
+      try { return JSON.parse(hmenuVals[i][4] || '[]'); } catch (e) { return []; }
     }
   }
   return [];
 }
-function remindMeals_(startDate, rounds) {
+// curStart = วันเริ่มรอบปัจจุบัน (ส่งมาเฉพาะเมื่อเผยแพร่เมนูแล้ว; ถ้ายังร่างอยู่ส่งว่าง จะไม่เอามาเตือน)
+function remindMeals_(curStart) {
   var today = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd');
   var hm = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'HH:mm');
-  // วันนี้เป็นวันที่เท่าไรของรอบ (0 = วันแรก) — ต้องอยู่ในช่วง 0..rounds-1
-  var startMs = new Date(startDate + 'T00:00:00+07:00').getTime();
-  var todayMs = new Date(today + 'T00:00:00+07:00').getTime();
-  var dayIndex = Math.round((todayMs - startMs) / 86400000);
-  if (dayIndex < 0 || dayIndex >= rounds) return;        // วันนี้ไม่อยู่ในรอบ = ไม่เตือนมื้อ
-  var menuVals = sheet(SHEET_MENU).getDataRange().getValues();
+  var inWindow = false;                                  // ยังไม่ถึงช่วงมื้อไหน = ไม่ต้องอ่านชีตเลย (trigger เดินทุก 5 นาที)
+  for (var w = 0; w < MEAL_REMIND.length; w++) if (hm >= MEAL_REMIND[w].s && hm <= MEAL_REMIND[w].e) inWindow = true;
+  if (!inWindow) return;
+  var menuVals = curStart ? sheet(SHEET_MENU).getDataRange().getValues() : [];
+  var hsh = SS.getSheetByName(SHEET_HMENU);
+  var hmenuVals = hsh ? hsh.getDataRange().getValues() : [];
   var props = PropertiesService.getScriptProperties();
   for (var i = 0; i < MEAL_REMIND.length; i++) {
     var m = MEAL_REMIND[i];
@@ -791,7 +812,7 @@ function remindMeals_(startDate, rounds) {
     var bkt = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'HH') + '_' + Math.floor(mm / 15);
     var k = 'meal_' + today + '_' + m.key + '_' + bkt;
     if (props.getProperty(k) === '1') continue;          // ช่วง 15 นาทีนี้ของมื้อนี้เตือนไปแล้ว
-    var items = _menuItemsFor_(menuVals, dayIndex, m.key);
+    var items = _menuItemsByDate_(menuVals, hmenuVals, today, m.key, curStart);
     if (!items.length) continue;                         // ไม่มีเมนูมื้อนี้ = ไม่เตือน
     var names = items.map(function (x) { return x.name; }).join(' / ');
     var r = osPush_('🍽️ ถึงเวลา' + m.label + 'แล้ว', 'เมนูวันนี้: ' + names + ' · เชิญรับประทานที่โรงอาหารได้เลย', APP_HOME_URL);
